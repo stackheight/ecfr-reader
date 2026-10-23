@@ -4,7 +4,7 @@
 def test_corpus_routes_say_so_before_an_import(empty_client):
     assert empty_client.get("/api/ecfr/status").get_json() == {"present": False}
     r = empty_client.get("/api/ecfr/toc")
-    assert r.status_code == 503 and "ecfr-reader import" in r.get_json()["error"]
+    assert r.status_code == 503 and "ecfr_reader import" in r.get_json()["error"]
     assert empty_client.get("/api/ecfr/search?q=x").status_code == 503
     assert empty_client.get("/").status_code == 200               # the page still loads
 
