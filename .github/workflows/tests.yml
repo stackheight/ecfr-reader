@@ -2,10 +2,11 @@ name: tests
 on: [push, pull_request]
 jobs:
   pytest:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ["3.10", "3.12", "3.13"]
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.13"]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -13,6 +14,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -r requirements.txt pytest
       - run: pytest -q
+      # the CLI end to end on the synthetic part: import, status, and the
+      # server answering — the same on both operating systems
+      - run: python -m ecfr_reader status
+      - run: python tests/smoke_cli.py
   audit:
     runs-on: ubuntu-latest
     steps:

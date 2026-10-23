@@ -35,6 +35,24 @@ python3 -m ecfr_reader serve            # http://127.0.0.1:5000
 `python3 -m ecfr_reader status` says what the data directory holds.
 `pip install -e .` adds an `ecfr-reader` command that does the same.
 
+On **Windows** (PowerShell, or PyCharm's terminal) the same steps read:
+
+```powershell
+py -m venv .venv; .venv\Scripts\activate
+pip install -r requirements.txt
+$env:ECFR_CONTACT = "you@example.org"       # cmd.exe: set ECFR_CONTACT=you@example.org
+python -m ecfr_reader fetch
+python -m ecfr_reader import
+python -m ecfr_reader serve
+```
+
+Run the commands from the project folder (the data directory is `.\data`
+under wherever you run them; in PyCharm, a run configuration's working
+directory). Stop `serve` before you `import`: the import swaps the
+database file into place, and Windows will not replace a file another
+process holds open. The test suite runs on Windows in this repository's
+GitHub workflow.
+
 ## What the reader does
 
 - **Table of contents.** Parts 50–99, each expanding to its subparts,

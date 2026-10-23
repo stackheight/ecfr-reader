@@ -6,6 +6,13 @@ from . import __version__, config
 
 
 def main(argv=None):
+    # A Windows console that is not UTF-8 would otherwise choke on the
+    # arrows and dashes in the progress lines; degrade them instead.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
     ap = argparse.ArgumentParser(prog="ecfr-reader", description="A local-first reader for 40 CFR.")
     ap.add_argument("--version", action="version", version=f"ecfr-reader {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)

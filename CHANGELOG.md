@@ -6,6 +6,9 @@
 endpoint now requires the request to permit compression, and Python's
 urllib does not ask for any. The client sends `Accept-Encoding: gzip`,
 inflates the reply, and quotes the server's own message on any 4xx.
+Windows: the console output degrades gracefully on a non-UTF-8 code
+page, the README has the PowerShell steps, and the test suite runs on a
+Windows runner in CI.
 
 ## 1.0.0 — 2026-10-23
 
