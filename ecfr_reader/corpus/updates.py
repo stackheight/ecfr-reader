@@ -8,6 +8,7 @@ urllib.request only. It contains no code from any third-party eCFR
 client.
 """
 
+import gzip
 import json
 import re
 import urllib.error
@@ -25,6 +26,26 @@ TITLE = 40
 class EcfrApiError(Exception):
     """An ecfr.gov request failed or returned something we can't parse.
     .args[0] is a human-readable message safe to show in the UI."""
+def _body(resp) -> bytes:
+    """The response body, inflated when the server compressed it."""
+    data = resp.read()
+    if (resp.headers.get("Content-Encoding") or "").lower() == "gzip":
+        return gzip.decompress(data)
+    return data
+
+
+def _server_message(err) -> str:
+    """ecfr.gov's own explanation of a 4xx, when it sends one
+    (<error><message>…</message></error>), so the user reads the reason
+    and not just the status line."""
+    try:
+        text = _body(err).decode("utf-8", "replace")
+    except Exception:
+        return ""
+    m = re.search(r"<message>(.*?)</message>", text, re.S)
+    return m.group(1).strip() if m else ""
+
+
 
 
 def _user_agent() -> str:
@@ -42,10 +63,12 @@ def _get(path: str, params: dict = None) -> dict:
     if params:
         url += "?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(
-        url, headers={"User-Agent": _user_agent(), "Accept": "application/json"})
+        url, headers={"User-Agent": _user_agent(), "Accept": "application/json", "Accept-Encoding": "gzip"})
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            return json.loads(_body(resp).decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        raise EcfrApiError(f"ecfr.gov returned HTTP {e.code} ({_server_message(e) or e.reason}).") from e
     except (urllib.error.URLError, TimeoutError, ValueError) as e:
         raise EcfrApiError(f"Couldn't reach ecfr.gov ({e}).") from e
 
@@ -76,10 +99,14 @@ def fetch_subpart_xml(date: str, part: str, subpart: str, title: int = TITLE) ->
 
 def _fetch_xml(date: str, params: dict, title: int) -> str:
     url = f"{BASE_URL}/full/{date}/title-{title}.xml?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={"User-Agent": _user_agent()})
+    # Accept-Encoding is REQUIRED here: since October 2026 the /full endpoint
+    # answers a request that does not permit compression with HTTP 406
+    # ("This endpoint requires response compression"). urllib sends none
+    # by default, so it is set by hand and the body inflated by hand.
+    req = urllib.request.Request(url, headers={"User-Agent": _user_agent(), "Accept-Encoding": "gzip"})
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            return resp.read().decode("utf-8")
+            return _body(resp).decode("utf-8")
     except urllib.error.HTTPError as e:
         # 429 is the one worth naming: it means we asked too fast, and the
         # caller can say so rather than "couldn't reach ecfr.gov", which would
@@ -87,7 +114,7 @@ def _fetch_xml(date: str, params: dict, title: int) -> str:
         if e.code == 429:
             raise EcfrApiError(
                 "ecfr.gov is rate-limiting us (HTTP 429) — wait a moment and retry.") from e
-        raise EcfrApiError(f"ecfr.gov returned HTTP {e.code} ({e.reason}).") from e
+        raise EcfrApiError(f"ecfr.gov returned HTTP {e.code} ({_server_message(e) or e.reason}).") from e
     except (urllib.error.URLError, TimeoutError) as e:
         raise EcfrApiError(f"Couldn't reach ecfr.gov ({e}).") from e
 

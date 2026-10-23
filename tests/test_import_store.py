@@ -64,3 +64,28 @@ def test_parts_scope_accepts_ranges_and_lists():
     assert _parts_scope("60") == {"60"}
     assert _parts_scope("50-52") == {"50", "51", "52"}
     assert _parts_scope("50-51, 63") == {"50", "51", "63"}
+
+
+def test_fetch_asks_for_compression_and_inflates(monkeypatch):
+    """ecfr.gov's full-text endpoint answers 406 unless the request permits
+    compression; the client asks for gzip and inflates the reply."""
+    import gzip
+    import io
+    import urllib.request
+    from email.message import Message
+    from ecfr_reader.corpus import updates
+    monkeypatch.setenv("ECFR_CONTACT", "t@example.org")
+    seen = {}
+
+    class Resp(io.BytesIO):
+        headers = Message()
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+    Resp.headers["Content-Encoding"] = "gzip"
+
+    def fake_urlopen(req, timeout=0):
+        seen["enc"] = req.get_header("Accept-encoding")
+        return Resp(gzip.compress("<DIV5>hello</DIV5>".encode()))
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    assert updates.fetch_full_xml("2026-10-21", "60", "60.4230") == "<DIV5>hello</DIV5>"
+    assert seen["enc"] == "gzip"
