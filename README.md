@@ -8,6 +8,8 @@ or live ecfr.gov), a word-level diff between the two, highlights with
 comments, notes, and a check that tells you when ecfr.gov has published a
 newer issue.
 
+State-level regulations maybe added in the future where practicable.
+
 ![The reader](docs/screenshot.png)
 
 Built for air-permitting work (Title 40, parts 50–99: the Clean Air Act
@@ -64,12 +66,12 @@ rebuilt from ecfr.gov.
 
 ## Configuration
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `ECFR_CONTACT` | unset | Required by `fetch` and by the live / update features. An email address or URL that goes into the User-Agent so the eCFR operators can reach whoever is making the requests. The reader itself never needs it. |
-| `ECFR_DATA_DIR` | `./data` | Where the XML, the corpus and your annotations live. Relative to the directory you run from. |
-| `ECFR_DB` | `<data>/ecfr.db` | The corpus file. |
-| `ECFR_ANNOTATIONS_DB` | `<data>/annotations.db` | Your notes, marks and stars. |
+| Variable              | Default                 | Meaning                                                                                                                                                                                                        |
+| --------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ECFR_CONTACT`        | unset                   | Required by `fetch` and by the live / update features. An email address or URL that goes into the User-Agent so the eCFR operators can reach whoever is making the requests. The reader itself never needs it. |
+| `ECFR_DATA_DIR`       | `./data`                | Where the XML, the corpus and your annotations live. Relative to the directory you run from.                                                                                                                   |
+| `ECFR_DB`             | `<data>/ecfr.db`        | The corpus file.                                                                                                                                                                                               |
+| `ECFR_ANNOTATIONS_DB` | `<data>/annotations.db` | Your notes, marks and stars.                                                                                                                                                                                   |
 
 `fetch --parts 60,63` or `--parts 50-52` narrows the corpus; `--date
 YYYY-MM-DD` fetches a past issue; `--force` refetches parts already on
@@ -87,18 +89,18 @@ per update check. Please keep it that way.
 
 Everything the page uses is plain JSON under `/api/ecfr/`:
 
-| Route | What |
-|---|---|
-| `GET /status` | snapshot date, parts, section count, the last update check |
-| `GET /toc`, `GET /toc/<part>` | the parts; one part's subparts and sections |
-| `GET /unit?part=&subpart=` (or `&appendix=`, or neither) | every section of one division, with its text blocks |
-| `GET /unit/live?part=&subpart=`, `GET /section/live?key=` | the same from ecfr.gov, as of its current issue |
-| `GET /search?q=&part=&limit=&offset=` | full-text search |
-| `GET /updates[?force=1]` | the notify-only update check (cached 24 h) |
-| `GET /annotations?scope=&key=` | notes and marks at a scope, with counts per scope |
-| `POST /notes`, `PATCH`/`DELETE /notes/<id>` | notes |
-| `POST /highlights`, `PATCH`/`DELETE /highlights/<id>` | marks |
-| `GET`/`POST /favorites` | stars (POST toggles) |
+| Route                                                     | What                                                       |
+| --------------------------------------------------------- | ---------------------------------------------------------- |
+| `GET /status`                                             | snapshot date, parts, section count, the last update check |
+| `GET /toc`, `GET /toc/<part>`                             | the parts; one part's subparts and sections                |
+| `GET /unit?part=&subpart=` (or `&appendix=`, or neither)  | every section of one division, with its text blocks        |
+| `GET /unit/live?part=&subpart=`, `GET /section/live?key=` | the same from ecfr.gov, as of its current issue            |
+| `GET /search?q=&part=&limit=&offset=`                     | full-text search                                           |
+| `GET /updates[?force=1]`                                  | the notify-only update check (cached 24 h)                 |
+| `GET /annotations?scope=&key=`                            | notes and marks at a scope, with counts per scope          |
+| `POST /notes`, `PATCH`/`DELETE /notes/<id>`               | notes                                                      |
+| `POST /highlights`, `PATCH`/`DELETE /highlights/<id>`     | marks                                                      |
+| `GET`/`POST /favorites`                                   | stars (POST toggles)                                       |
 
 ## Development
 
