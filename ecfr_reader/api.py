@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, request
 
 bp = Blueprint("ecfr", __name__)
 
-IMPORT_HINT = "ecfr-reader fetch, then ecfr-reader import"
+IMPORT_HINT = "python -m ecfr_reader fetch, then python -m ecfr_reader import"
 
 
 def _ecfr_unavailable():

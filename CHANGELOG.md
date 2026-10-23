@@ -10,6 +10,10 @@ A part download gets a five-minute read timeout and a retry (part 63 is
 ~26 MB and ecfr.gov compresses it before sending; the old 25 s timeout
 cut the fetch off on a slow link), and a failed fetch exits with the
 part's name and a resume hint instead of a traceback.
+The hints after `fetch` spell the next command the way you ran this
+one (`python -m ecfr_reader import`, or `ecfr-reader import` after
+`pip install -e .`), and `import` without the packages installed says
+to run `pip install -r requirements.txt` instead of a traceback.
 Windows: the console output degrades gracefully on a non-UTF-8 code
 page, the README has the PowerShell steps, and the test suite runs on a
 Windows runner in CI.

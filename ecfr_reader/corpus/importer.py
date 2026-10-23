@@ -15,7 +15,12 @@ import sqlite3
 import sys
 from datetime import datetime, timezone
 
-from bs4 import BeautifulSoup
+try:
+    from bs4 import BeautifulSoup
+    import lxml  # noqa: F401 — the parser beautifulsoup4 is asked for below
+except ImportError as _e:
+    sys.exit(f"The importer needs the packages in requirements.txt ({_e.name} is missing). "
+             "In your virtual environment run:  pip install -r requirements.txt")
 
 from .. import config
 from .render import render_part
@@ -65,13 +70,13 @@ def run():
                  "Use a python.org, distro or uv-managed interpreter (all ship FTS5).")
     state_path, xml_dir, out = config.dataset_state_path(), config.xml_dir(), db_path()
     if not os.path.isfile(state_path):
-        sys.exit(f"Missing {state_path} — run `ecfr-reader fetch` first.")
+        sys.exit(f"Missing {state_path} — run `{config.prog()} fetch` first.")
     with open(state_path, "r", encoding="utf-8") as f:
         dataset_state = json.load(f)
 
     files = _xml_files(xml_dir)
     if not files:
-        sys.exit(f"No title-40-part-*.xml files found in {xml_dir} — run `ecfr-reader fetch` first.")
+        sys.exit(f"No title-40-part-*.xml files found in {xml_dir} — run `{config.prog()} fetch` first.")
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
 
     tmp_path = out + ".tmp"

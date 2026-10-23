@@ -21,6 +21,16 @@ REPO_URL = "https://github.com/SpottedHound/ecfr-reader"
 DEFAULT_STATE = {"title": 40, "chapter": "I", "subchapter": "C", "parts": "50-99", "snapshot_date": None}
 
 
+def prog():
+    """How to spell this program the way it was invoked: `ecfr-reader`
+    after `pip install -e .`, else `python -m ecfr_reader` — so a hint
+    like "now run: … import" is one the user can paste."""
+    import sys
+    if os.path.basename(sys.argv[0] or "").startswith("ecfr-reader"):
+        return "ecfr-reader"
+    return f"{os.path.basename(sys.executable) or 'python'} -m ecfr_reader"
+
+
 def data_dir():
     return os.path.abspath(os.environ.get("ECFR_DATA_DIR") or "data")
 

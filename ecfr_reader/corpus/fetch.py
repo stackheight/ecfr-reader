@@ -90,7 +90,7 @@ def run(date=None, force=False, parts_spec=None):
         try:
             data = _fetch_part(date, part)
         except EcfrApiError as e:
-            sys.exit(f"part {part}: {e}\nRe-run `ecfr-reader fetch` to resume — the "
+            sys.exit(f"part {part}: {e}\nRe-run `{config.prog()} fetch` to resume — the "
                      f"{fetched + skipped} part(s) already on disk are kept.")
         tmp = dest + ".tmp"
         with open(tmp, "wb") as f:
@@ -111,7 +111,7 @@ def run(date=None, force=False, parts_spec=None):
         os.replace(tmp, state_path)
         print(f"complete: {fetched} fetched ({total_bytes / 1024 / 1024:.0f} MB), "
               f"{skipped} already present; snapshot_date = {date}")
-        print("now run:  ecfr-reader import")
+        print(f"now run:  {config.prog()} import")
         return date
     else:
         missing = sorted(set(parts) - set(have), key=int)
