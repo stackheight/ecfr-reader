@@ -89,3 +89,26 @@ def test_fetch_asks_for_compression_and_inflates(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     assert updates.fetch_full_xml("2026-10-21", "60", "60.4230") == "<DIV5>hello</DIV5>"
     assert seen["enc"] == "gzip"
+
+
+def test_a_part_download_gets_the_long_timeout_and_a_timeout_is_retried(monkeypatch):
+    import urllib.request
+    from ecfr_reader.corpus import fetch, updates
+    monkeypatch.setenv("ECFR_CONTACT", "t@example.org")
+    monkeypatch.setattr(fetch, "BACKOFF_S", 0)
+    calls = []
+
+    def fake_urlopen(req, timeout=0):
+        calls.append(timeout)
+        if len(calls) == 1:
+            raise TimeoutError("The read operation timed out")
+        import io
+        from email.message import Message
+        class Resp(io.BytesIO):
+            headers = Message()
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+        return Resp(b"<DIV5>ok</DIV5>")
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    assert fetch._fetch_part("2026-10-21", "63") == b"<DIV5>ok</DIV5>"
+    assert calls == [fetch.PART_TIMEOUT_S, fetch.PART_TIMEOUT_S] and fetch.PART_TIMEOUT_S >= 120

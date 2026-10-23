@@ -97,7 +97,7 @@ def fetch_subpart_xml(date: str, part: str, subpart: str, title: int = TITLE) ->
     return _fetch_xml(date, {"part": part, "subpart": subpart}, title)
 
 
-def _fetch_xml(date: str, params: dict, title: int) -> str:
+def _fetch_xml(date: str, params: dict, title: int, timeout: float = TIMEOUT) -> str:
     url = f"{BASE_URL}/full/{date}/title-{title}.xml?" + urllib.parse.urlencode(params)
     # Accept-Encoding is REQUIRED here: since October 2026 the /full endpoint
     # answers a request that does not permit compression with HTTP 406
@@ -105,7 +105,7 @@ def _fetch_xml(date: str, params: dict, title: int) -> str:
     # by default, so it is set by hand and the body inflated by hand.
     req = urllib.request.Request(url, headers={"User-Agent": _user_agent(), "Accept-Encoding": "gzip"})
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return _body(resp).decode("utf-8")
     except urllib.error.HTTPError as e:
         # 429 is the one worth naming: it means we asked too fast, and the
@@ -115,7 +115,11 @@ def _fetch_xml(date: str, params: dict, title: int) -> str:
             raise EcfrApiError(
                 "ecfr.gov is rate-limiting us (HTTP 429) — wait a moment and retry.") from e
         raise EcfrApiError(f"ecfr.gov returned HTTP {e.code} ({_server_message(e) or e.reason}).") from e
-    except (urllib.error.URLError, TimeoutError) as e:
+    except TimeoutError as e:
+        raise EcfrApiError(f"ecfr.gov took longer than {timeout:.0f} s to answer (timed out).") from e
+    except urllib.error.URLError as e:
+        if isinstance(e.reason, TimeoutError):
+            raise EcfrApiError(f"ecfr.gov took longer than {timeout:.0f} s to answer (timed out).") from e
         raise EcfrApiError(f"Couldn't reach ecfr.gov ({e}).") from e
 
 

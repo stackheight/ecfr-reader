@@ -6,6 +6,10 @@
 endpoint now requires the request to permit compression, and Python's
 urllib does not ask for any. The client sends `Accept-Encoding: gzip`,
 inflates the reply, and quotes the server's own message on any 4xx.
+A part download gets a five-minute read timeout and a retry (part 63 is
+~26 MB and ecfr.gov compresses it before sending; the old 25 s timeout
+cut the fetch off on a slow link), and a failed fetch exits with the
+part's name and a resume hint instead of a traceback.
 Windows: the console output degrades gracefully on a non-UTF-8 code
 page, the README has the PowerShell steps, and the test suite runs on a
 Windows runner in CI.

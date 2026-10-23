@@ -30,15 +30,21 @@ from .updates import EcfrApiError, _fetch_xml, _parts_scope, latest_title_date
 PAUSE_S = 1.5
 BACKOFF_S = 30
 MAX_TRIES = 3
+# A whole part is one response — part 63 is ~26 MB and ecfr.gov compresses
+# it before the first byte arrives — so the read timeout is minutes, not
+# the 25 s the small JSON calls use.
+PART_TIMEOUT_S = 300
 
 
 def _fetch_part(date: str, part: str) -> bytes:
     for attempt in range(1, MAX_TRIES + 1):
         try:
-            return _fetch_xml(date, {"part": part}, 40).encode("utf-8")
+            return _fetch_xml(date, {"part": part}, 40, timeout=PART_TIMEOUT_S).encode("utf-8")
         except EcfrApiError as e:
-            if "429" in str(e) and attempt < MAX_TRIES:
-                print(f"  part {part}: rate-limited, backing off "
+            retry = "429" in str(e) or "timed out" in str(e)
+            if retry and attempt < MAX_TRIES:
+                why = "rate-limited" if "429" in str(e) else "timed out"
+                print(f"  part {part}: {why}, backing off "
                       f"{BACKOFF_S}s (attempt {attempt}/{MAX_TRIES})")
                 time.sleep(BACKOFF_S)
                 continue
@@ -81,7 +87,11 @@ def run(date=None, force=False, parts_spec=None):
         if os.path.exists(dest) and not args.force:
             skipped += 1
             continue
-        data = _fetch_part(date, part)
+        try:
+            data = _fetch_part(date, part)
+        except EcfrApiError as e:
+            sys.exit(f"part {part}: {e}\nRe-run `ecfr-reader fetch` to resume — the "
+                     f"{fetched + skipped} part(s) already on disk are kept.")
         tmp = dest + ".tmp"
         with open(tmp, "wb") as f:
             f.write(data)
