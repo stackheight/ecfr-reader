@@ -1,0 +1,16 @@
+# the data directory holds derived, rebuildable files (the fetched XML and
+# the corpus database) plus your annotations.db — none of it belongs in git
+data/*
+!data/dataset_state.json
+*.db
+*.db-wal
+*.db-shm
+*.db.tmp
+*.xml.tmp
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log
+*.egg-info/

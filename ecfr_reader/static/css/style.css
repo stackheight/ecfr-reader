@@ -1,0 +1,750 @@
+/* ecfr-reader — the reader's styles. Carved from a larger application's
+   stylesheet: the theme tokens, the page chrome it borrows, and the eCFR
+   block itself. Light and dark themes via :root[data-theme]. */
+
+/* ── Theme tokens ── */
+:root {
+    --bg: #f0f2f4;            /* cool-biased gray: reads
+                                 neutral even on warm-shifted displays */
+    --surface: #ffffff;       /* true white cards — standard issue */
+    --surface-alt: #f6f4ee;   /* insets, inputs, hover headers */
+    --row-hover: #efece4;
+    --border: #dcd9d0;
+    --border-strong: #a3a094;
+    --text: #241f2e;          /* space ink, violet-black */
+    --text-2: #4f4859;        /* secondary */
+    --text-muted: #837c8a;    /* hints, meta */
+    --accent: #0c7489;        /* signal teal */
+    --accent-hover: #0a5c6d;
+    --accent-tint: #dcede7;
+    --on-accent: #ffffff;     /* text painted on accent backgrounds */
+    --link: #0f6478;          /* readable facility-name teal */
+    --thead-bg: #f2ecdc;      /* faint gold (v3) — the lone strong-amber band
+    --thead-text: #71603b;
+    --ok: #337a4d;     --ok-bg: #e2f0e0;     --ok-bd: #badcba;
+    --warn: #9c6a1a;   --warn-bg: #f8ecd2;   --warn-bd: #ead5a0;
+    --star: #a8770f;   --star-tint: #f8ecd2; /* favorite stars: gold, not signal-blue */
+    --danger: #ac3a30; --danger-bg: #f9e4de; --danger-bd: #edc2b7;
+    --shadow-sm: 0 1px 2px rgba(40,38,32,.08), 0 4px 10px rgba(40,38,32,.08);
+    --shadow-md: 0 8px 22px rgba(40,38,32,.13);
+
+    /* ── Instrument scale (frontend-refresh chunk 1) ──────────────────
+       Type: eight named steps — pick the nearest, never a new literal.
+       Radii: three shapes. Spacing: use in new/edited rules. */
+    --fs-nano: .62rem;      /* densest chrome */
+    --fs-caption: .70rem;   /* captions, hints, pills */
+    --fs-small: .76rem;     /* buttons, chips, meta */
+    --fs-data: .82rem;      /* table cells, inputs */
+    --fs-body: .88rem;      /* body copy */
+    --fs-title: 1.05rem;    /* panel titles */
+    --fs-heading: 1.35rem;  /* screen headings */
+    --fs-display: 2rem;     /* KPI figures */
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-pill: 999px;
+    --radius: var(--r-md);
+    /* One face across app + landing (Linux-first, like landing.css);
+       --font-data carries instrument readouts — tabular digits. */
+    --font-ui: "Liberation Sans", "DejaVu Sans", "Helvetica Neue", Arial, sans-serif;
+    --font-data: "Liberation Mono", "DejaVu Sans Mono", Consolas, monospace;
+
+
+}
+
+/* ── Dark theme ── */
+:root[data-theme="dark"] {
+    --bg: #0c1322;            /* "closer to dawn" — lifted off the void */
+    --surface: #1a2540;
+    --surface-alt: #253352;
+    --row-hover: #2f4066;
+    --border: #35466a;
+    --border-strong: #5a6f9c;
+    --text: #f2f5fc;
+    --text-2: #b0bcd4;
+    --text-muted: #7787a3;
+    --accent: #62d9e8;        /* signal cyan — bright, so on-accent is dark */
+    --accent-hover: #8ce6f2;
+    --accent-tint: #143c50;
+    --on-accent: #05070d;
+    --link: #7fdcea;
+    --thead-bg: #253352;
+    --thead-text: #8fdcec;
+    --ok: #4fdd8a;     --ok-bg: #16402a;     --ok-bd: #276b48;
+    --warn: #ffc94d;   --warn-bg: #473913;   --warn-bd: #745d1c;
+    --star: #ffc94d;   --star-tint: #473913; /* favorite stars: gold */
+    --danger: #ff8078; --danger-bg: #4b2222; --danger-bd: #773636;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.45), 0 5px 14px rgba(0,0,0,.34);
+    --shadow-md: 0 10px 26px rgba(0,0,0,.50);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html { background: var(--bg); }
+
+:where(input:not([type="checkbox"], [type="radio"], [type="range"],
+                 [type="color"], [type="file"]), select, textarea) {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm);
+    font-family: var(--font-ui);
+    font-size: var(--fs-data);
+    padding: 5px 8px;
+}
+
+:root { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; scrollbar-color: var(--border-strong) transparent; }
+
+:where(a) { color: var(--link); }
+:where(a:visited) { color: var(--link); }
+
+body {
+    font-family: var(--font-ui);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+ul.hint, ol.hint { text-align: left; margin-top: 8px; }
+.hint {
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+    margin-top: 40px;
+}
+
+.ecfr-fav-below { color: var(--warn); font-size: var(--fs-nano); margin-left: 6px;
+    vertical-align: 2px; }
+
+.spec-input,
+.spec-select {
+    width: 150px;
+    padding: 4px 8px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--text);
+    font-size: var(--fs-data);
+}
+
+.spec-input { text-align: right; }
+
+.spec-select,
+.spec-input.spec-text {
+    text-align: left;
+}
+
+.spec-input:focus,
+.spec-select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.rerun-link {
+    background: none; border: none; color: var(--accent); cursor: pointer;
+    font-size: var(--fs-small); padding: 0 2px; text-decoration: underline;
+}
+.rerun-link:hover { color: var(--accent-hover); }
+
+header {
+    display: flex; align-items: center; padding: 10px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    gap: 16px;
+}
+header h1, .brand {
+    color: var(--text); font-size: var(--fs-title); font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+}
+/* Wordmark: glyph + tracked caps */
+.brand { display: flex; align-items: center; gap: 10px; letter-spacing: .30em; }
+.brand svg { display: block; flex-shrink: 0; }
+.brand .mark { color: var(--accent); }
+
+.facilities-home { display: none; padding: 22px; max-width: 1340px; margin: 0 auto;
+    height: calc(100vh - 54px); overflow-y: auto; }
+.home-title { font-size: var(--fs-heading); font-weight: 700; letter-spacing: -.4px;
+    color: var(--text); margin-bottom: 14px; }
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+.kpi { background: var(--surface); border: 1px solid var(--border);
+    border-top: 3px solid var(--border-strong);
+    border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow-sm); }
+.kpi:has(.kpi-value.danger) { border-top-color: var(--danger); }
+.kpi:has(.kpi-value.warn) { border-top-color: var(--warn); }
+.kpi-label { font-size: var(--fs-caption); font-weight: 600; text-transform: uppercase;
+    letter-spacing: .5px; color: var(--text-2); }
+.kpi-value { font-size: var(--fs-display); font-weight: 700; margin-top: 6px;
+    font-family: var(--font-data); font-variant-numeric: tabular-nums;
+    letter-spacing: -.5px; color: var(--text); }
+.kpi-value.danger { color: var(--danger); }
+.kpi-value.warn { color: var(--warn); }
+.kpi-value .unit { font-size: var(--fs-body); font-weight: 500; color: var(--text-muted); }
+.kpi-sub { font-size: var(--fs-small); color: var(--text-muted); margin-top: 4px; }
+
+.home-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.home-toolbar select { padding: 8px 10px; border: 1px solid var(--border-strong);
+    border-radius: 8px; background: var(--surface); color: var(--text-2); font-size: var(--fs-data); cursor: pointer; }
+.home-toolbar input[type="search"] { flex: 1; min-width: 220px; padding: 8px 12px;
+    border: 1px solid var(--border-strong); border-radius: var(--r-sm);
+    background: var(--surface); color: var(--text); font-size: var(--fs-data); }
+
+.comp-section-head { font-size: var(--fs-body); font-weight: 700; color: var(--text);
+    text-align: left; margin: 18px 0 8px; }
+.comp-section-sub { font-size: var(--fs-caption); font-weight: 400; color: var(--text-muted);
+    margin-left: 10px; }
+
+.fac-table-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-sm);
+    overflow: hidden; overflow-x: auto; }
+
+.fac-table { width: 100%; border-collapse: collapse; font-size: var(--fs-data);
+    font-variant-numeric: tabular-nums; }
+.fac-table thead th { text-align: left; font-size: var(--fs-caption); font-weight: 600; text-transform: uppercase;
+    letter-spacing: .4px; color: var(--thead-text); background: var(--thead-bg);
+    padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap;
+    cursor: pointer; user-select: none; position: sticky; top: 0; }
+.fac-table thead th.num { text-align: right; }
+.fac-table thead th.sorted { color: var(--accent); }
+.fac-table tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border);
+    color: var(--text); vertical-align: middle; }
+.fac-table tbody tr:last-child td { border-bottom: none; }
+.fac-table tbody tr:hover { background: var(--surface-alt); cursor: pointer; }
+.fac-table td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.fac-table td.muted { color: var(--text-muted); font-size: var(--fs-small); white-space: nowrap; }
+.fac-name { font-weight: 600; color: var(--link); }
+
+.btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px; padding: 7px 14px;
+    border: 1px solid transparent; border-radius: var(--r-sm);
+    font-family: inherit; font-size: var(--fs-small); font-weight: 600;
+    line-height: 1.2; cursor: pointer; white-space: nowrap;
+    transition: background .15s, color .15s, border-color .15s;
+}
+.btn:hover { box-shadow: var(--shadow-sm); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-quiet { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+.btn-quiet:hover { background: var(--accent-tint); color: var(--accent-hover); }
+.btn-danger { background: var(--danger-bg); color: var(--danger); border-color: var(--danger-bd); }
+.btn-danger:hover { background: var(--danger-bd); }
+.btn-ok { background: var(--ok-bg); color: var(--ok); border-color: var(--ok-bd); }
+.btn-ok:hover { background: var(--ok-bd); }
+.btn-sm { padding: 4px 10px; font-size: var(--fs-caption); font-weight: 500; }
+.btn-block { display: flex; width: 100%; margin: 12px 0 8px; }
+
+.workspace-nav { display: flex; gap: 2px; background: var(--surface-alt); border: 1px solid var(--border);
+    border-radius: var(--r-md); padding: 3px; flex-shrink: 0; }
+.ws-btn { background: transparent; border: none; color: var(--text-2); font-size: var(--fs-data); font-weight: 600;
+    padding: 5px 14px; border-radius: var(--r-sm); cursor: pointer; position: relative; white-space: nowrap; }
+.ws-btn:hover { color: var(--text); }
+.ws-btn:disabled { color: var(--text-muted); opacity: .55; cursor: default; }
+.ws-btn:disabled:hover { color: var(--text-muted); }
+.ws-btn.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow-sm); }
+.ws-btn:focus-visible, .view-toggle-btn:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ── The beam (frontend-refresh chunk 3) ──────────────────────────────
+   ONE mark of "you are here" at every navigation level: a thin accent
+   bar on the active item's leading edge — bottom edge for tabs, left
+   edge for rail rows. The shape of the item itself never changes.
+   The glow is dark-theme only (light theme keeps the instrument calm). */
+.ws-btn.active::after, .view-toggle-btn.active::after {
+    content: ""; position: absolute; left: 22%; right: 22%; bottom: 2px;
+    height: 2px; background: var(--accent); border-radius: 2px;
+}
+
+.theme-toggle { display: flex; gap: 6px; }
+.theme-opt { flex: 1; padding: 7px 10px; border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm); background: var(--surface); color: var(--text-2);
+    font-size: var(--fs-data); font-weight: 600; cursor: pointer; }
+.theme-opt:hover { background: var(--surface-alt); }
+.theme-opt.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+#toast-box { position: fixed; right: 18px; bottom: 18px; z-index: 3000;
+    display: flex; flex-direction: column; gap: 8px; max-width: 460px; }
+.toast { display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 16px; border-radius: 8px; font-size: .92rem;
+    line-height: 1.4; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text);
+    box-shadow: var(--shadow-md); animation: toast-in .18s ease; }
+/* Toasts follow the notice recipe (faint mix fill, hairline border,
+   body in --text) — the floating channel matches the family. */
+.toast-error { background: color-mix(in srgb, var(--danger) 9%, var(--surface));
+    border-left: 3px solid var(--danger); }
+.toast-success { background: color-mix(in srgb, var(--ok) 9%, var(--surface));
+    border-left: 3px solid var(--ok); }
+.toast.fade { opacity: 0; transition: opacity .4s ease; }
+.toast-x { background: none; border: none; color: inherit; cursor: pointer;
+    font-size: 1rem; margin-left: auto; padding: 0 4px; flex-shrink: 0; }
+@keyframes toast-in { from { transform: translateY(8px); opacity: 0; } }
+
+/* ── eCFR viewer ─────────────────────────────────────────────────────── */
+.ecfr-code { background: var(--surface-alt); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 14px; font-family: monospace; font-size: var(--fs-data);
+    color: var(--text); margin: 8px 0; }
+
+/* THE reason ~40% of a wide window sat unused. Every app-level workspace
+   shares .facilities-home, whose max-width:1340px is right for the card
+   dashboards (a centred column of KPIs and tables) but wrong for the reader,
+   which is a full-height three-pane workspace that should use the glass it
+   is given. Measured before this rule: the reader stuck at 1296px at any
+   window size, and past ~1500px the rails hit their max while the reading
+   pane SHRANK to 548px — 16% of a 3440px screen. Scoped with :has() so the
+   eCFR dashboard on the same element keeps the shared cap. */
+#ecfr-workspace:has(.ecfr-reader) { max-width: none; }
+
+/* Fills the window at any width: the rails scale with the viewport but stay
+   inside sane bounds, and the reading pane takes everything left over. The
+   46rem cap that used to live here capped the middle column itself; the
+   reading measure now belongs to the frame instead (see .ecfr-frames below),
+   so it only constrains the text, never the layout. */
+.ecfr-reader { display: grid; min-height: 0; height: 100%; gap: 14px;
+    grid-template-columns: clamp(240px, 18vw, 340px) minmax(0, 1fr) clamp(280px, 21vw, 380px); }
+.ecfr-toc, .ecfr-pane, .ecfr-annotations { background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow-sm); overflow-y: auto; min-height: 0; }
+/* Reserve the scrollbar's width permanently. Without it the bar appears only
+   once you scroll — and lands directly on top of the row stars, which sit at
+   the same right edge. Worse: the stars are invisible until hover, and
+   hovering the right edge is exactly what summons the bar, so the two arrive
+   together in the same pixels. `stable` keeps the gutter there always, so the
+   layout can't shift under the cursor mid-reach. */
+.ecfr-toc { scrollbar-gutter: stable; }
+/* The pane itself no longer scrolls — each frame body does, so the two
+   sides can be scrolled to matching places independently. */
+.ecfr-pane { display: flex; flex-direction: column; overflow: hidden; padding: 14px; }
+
+/* Search sits above everything: it's the fastest way into 10,812 sections. */
+.ecfr-search { display: flex; align-items: center; gap: 4px; padding: 10px 10px 8px;
+    border-bottom: 1px solid var(--border); }
+.ecfr-search-input { flex: 1; min-width: 0; font-size: var(--fs-small); padding: 5px 8px;
+    background: var(--surface-alt); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--r-sm); }
+.ecfr-search-input:focus { outline: none; border-color: var(--accent); }
+.ecfr-search-x { flex: none; background: none; border: none; cursor: pointer;
+    color: var(--text-muted); font-size: var(--fs-data); padding: 4px 6px; }
+.ecfr-search-x:hover { color: var(--text); }
+.ecfr-search-count { font-size: var(--fs-nano); color: var(--text-muted); padding: 8px 12px 4px;
+    text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+.ecfr-search-hit { display: block; width: calc(100% - 16px); margin: 0 8px 3px;
+    text-align: left; background: none; border: none; border-radius: var(--r-sm);
+    padding: 6px 8px; cursor: pointer; }
+.ecfr-search-hit:hover { background: var(--surface-alt); }
+.ecfr-search-hit.current { background: var(--accent-tint); }
+.ecfr-search-head { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; font-size: var(--fs-small); font-weight: 600; color: var(--text);
+    line-height: 1.3; }
+.ecfr-search-snip { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    overflow: hidden; font-size: var(--fs-caption); color: var(--text-2); line-height: 1.4;
+    margin-top: 2px; }
+/* The matched terms, marked by the FTS snippet sentinels. */
+.ecfr-search-snip b { color: var(--accent); font-weight: 700; }
+.ecfr-search-more { display: block; width: calc(100% - 16px); margin: 6px 8px 10px;
+    padding: 5px; background: var(--surface-alt); border: 1px solid var(--border);
+    border-radius: 5px; color: var(--text-2); font-size: var(--fs-caption); cursor: pointer; }
+.ecfr-search-more:hover:not(:disabled) { color: var(--text); }
+.ecfr-search-more:disabled { opacity: .5; cursor: default; }
+
+/* Reader controls. These were .rerun-link — underlined blue text — which
+   reads as "this navigates away" when every one of them acts on the page you
+   are already on. Scoped to the reader rather than restyling .rerun-link,
+   which the workbench and obligations screens also use. */
+.ecfr-btn { display: inline-flex; align-items: center; gap: 5px;
+    background: var(--surface-alt); border: 1px solid var(--border);
+    border-radius: var(--r-sm); color: var(--text-2); cursor: pointer;
+    font-size: var(--fs-caption); line-height: 1; padding: 5px 9px;
+    text-decoration: none; white-space: nowrap; }
+.ecfr-btn:hover:not(:disabled) { background: var(--surface); color: var(--text);
+    border-color: var(--text-muted); }
+/* .rerun-link had no :disabled rule at all, so a dead prev/next still looked
+   like a live link. Three call sites pass `disabled`. */
+.ecfr-btn:disabled { opacity: .45; cursor: default; }
+.ecfr-btn.on { background: var(--accent); border-color: var(--accent);
+    color: var(--on-accent); font-weight: 700; }
+/* Prev/next carry a section heading and must not shove the row's other
+   controls off; they truncate instead. */
+.ecfr-btn.ecfr-btn-nav { max-width: 22ch; overflow: hidden;
+    text-overflow: ellipsis; display: inline-block; }
+
+.ecfr-toc-head { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--text-muted); padding: 12px 12px 6px; }
+
+/* A TOC row is the node's own control plus its star. The star must not be
+   inside the button (invalid, and it would swallow the click), so the row
+   is the flex parent and the button takes the slack. */
+/* The row is inset from the scroll container's edge so the star has room to
+   be clicked; scrollbar-gutter above reserves the bar's width, this keeps the
+   star off the gutter. .ecfr-search-hit already worked this way — the tree
+   rows just never got the same treatment. */
+.ecfr-toc-row { display: flex; align-items: flex-start; gap: 2px;
+    padding-right: 6px; }
+.ecfr-toc-row > button { flex: 1; min-width: 0; }
+/* 24px, not 20: a 20px glyph box is under the ~24px minimum that a pointer
+   target wants, and this one is small, low-contrast and only appears on hover. */
+.ecfr-star { flex: none; width: 24px; padding: 4px 0; cursor: pointer;
+    text-align: center; font-size: var(--fs-data); line-height: 1.2; border-radius: 4px;
+    color: var(--text-muted); opacity: 0; transition: opacity .12s ease; }
+/* Invisible until you go looking for it, or until it's on — 10,812 rows of
+   permanently-visible stars would be noise, not affordance. */
+.ecfr-toc-row:hover .ecfr-star, .ecfr-toc-subpart summary:hover .ecfr-star,
+.ecfr-star:focus-visible { opacity: 1; }
+.ecfr-star.on { opacity: 1; color: var(--star); }
+.ecfr-star:hover { color: var(--star); background: var(--surface-alt); }
+.ecfr-toc-subpart summary .ecfr-star { margin-left: auto; }
+
+/* Collapsible groups: the pinned favorites, and the whole tree. */
+.ecfr-toc-favs > summary, .ecfr-toc-root > summary { display: flex; align-items: center;
+    gap: 6px; cursor: pointer; list-style: none; }
+.ecfr-toc-favs > summary::-webkit-details-marker,
+.ecfr-toc-root > summary::-webkit-details-marker { display: none; }
+.ecfr-toc-favs > summary::before, .ecfr-toc-root > summary::before {
+    content: "▾"; width: 10px; flex: none; font-weight: 400; }
+.ecfr-toc-favs:not([open]) > summary::before,
+.ecfr-toc-root:not([open]) > summary::before { content: "▸"; }
+.ecfr-toc-favs > summary:hover, .ecfr-toc-root > summary:hover { color: var(--text-2); }
+.ecfr-toc-favs { border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.ecfr-toc-fav { display: flex; align-items: baseline; gap: 6px; width: 100%;
+    text-align: left; background: none; border: none; border-radius: var(--r-sm);
+    padding: 5px 8px; cursor: pointer; font-size: var(--fs-data); color: var(--text-2); }
+.ecfr-toc-fav:hover { background: var(--surface-alt); color: var(--text); }
+.ecfr-toc-fav.current { background: var(--accent-tint); color: var(--accent); font-weight: 700; }
+.ecfr-toc-fav-icon { flex: none; width: 12px; color: var(--text-muted); }
+.ecfr-toc-fav-label { display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; }
+
+/* "Applies to your equipment": the reverse cross-link, rule text -> your units. */
+
+
+/* The ↗ beside an in-corpus citation: the viewer link is primary, this is
+   the escape hatch to the authoritative text. */
+.cite-ext { margin-left: 3px; font-size: .8em; text-decoration: none; }
+
+/* --- Version diff (local -> live) ---------------------------------- */
+/* Insertion green / deletion red, the convention everyone already reads.
+   Deletions keep the strike so the two are still distinguishable without
+   colour — the marks must survive a colourblind reader and a mono printout. */
+.ecfr-diff-ins { background: var(--ok-bg); color: var(--ok); text-decoration: none;
+    border-bottom: 2px solid var(--ok); border-radius: 2px; padding: 0 1px; }
+.ecfr-diff-del { background: var(--danger-bg); color: var(--danger);
+    text-decoration: line-through; opacity: .75; border-radius: 2px; padding: 0 1px; }
+/* The armed state comes from .ecfr-btn.on (accent fill). An accent-COLOURED
+   rule here would land on that accent fill and vanish — same specificity,
+   later in the file, so it would win. */
+.ecfr-diff-badge { display: inline-block; font-size: var(--fs-nano); font-weight: 700;
+    letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px;
+    border-radius: 999px; margin-bottom: 6px; }
+.ecfr-diff-badge.added { background: var(--ok-bg); color: var(--ok); }
+.ecfr-diff-badge.removed { background: var(--danger-bg); color: var(--danger); }
+.ecfr-diff-badge.changed { background: var(--accent-tint); color: var(--accent); }
+/* Tables are badged whole rather than cell-diffed — a half-aligned table is
+   unreadable, so the badge marks the boundary of what we're claiming. */
+.ecfr-diff-table { border-left: 3px solid var(--border); padding-left: 10px; margin: 14px 0; }
+.ecfr-diff-table.added { border-left-color: var(--ok); }
+.ecfr-diff-table.removed { border-left-color: var(--danger); }
+.ecfr-diff-table.changed { border-left-color: var(--accent); }
+.ecfr-diff-none { padding: 10px 12px; margin-bottom: 12px; border-radius: var(--r-sm);
+    background: var(--surface-alt); color: var(--text-2); font-size: var(--fs-small); }
+/* Nothing is annotatable here, so don't offer a text cursor that implies it. */
+.ecfr-frame-body.diffing { cursor: default; }
+.ecfr-toc-part-head { display: flex; align-items: baseline; gap: 6px; width: 100%;
+    text-align: left; background: none; border: none; padding: 6px 10px; cursor: pointer;
+    font-size: var(--fs-data); color: var(--text); border-radius: 4px; }
+.ecfr-toc-part-head:hover { background: var(--surface-alt); }
+.ecfr-toc-part-head.current { color: var(--accent); font-weight: 700; }
+.ecfr-toc-caret { width: 12px; color: var(--text-muted); flex: none; }
+.ecfr-toc-num { font-weight: 600; flex: none; }
+.ecfr-toc-title { color: var(--text-2); overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; }
+.ecfr-toc-children { padding-left: 22px; }
+.ecfr-toc-loading { padding: 6px 12px; font-size: var(--fs-small); color: var(--text-muted); }
+/* Subpart rows carry the full heading, so they wrap. The default disclosure
+   marker would sit oddly next to a multi-line block; use the same ▸/▾ caret
+   the part rows above use instead. */
+.ecfr-toc-subpart summary { display: flex; gap: 6px; align-items: baseline;
+    font-size: var(--fs-data); font-weight: 600; color: var(--text-2);
+    cursor: pointer; padding: 5px 8px; line-height: 1.35; list-style: none; }
+.ecfr-toc-subpart summary::-webkit-details-marker { display: none; }
+.ecfr-toc-subpart summary::before { content: "▸"; flex: none; width: 10px;
+    color: var(--text-muted); font-weight: 400; }
+.ecfr-toc-subpart[open] summary::before { content: "▾"; }
+.ecfr-toc-subpart summary:hover { color: var(--text); }
+/* A few headings run past 250 chars — clamp so one subpart can't swallow the
+   sidebar; the full text is in the summary's title tooltip. */
+.ecfr-toc-subpart-label { display: -webkit-box; -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical; overflow: hidden; }
+/* Section rows carry the full heading ("§ 60.21 Definitions."), so they wrap
+   rather than truncate at one line; two lines covers most, and the full text
+   is in the title tooltip. */
+.ecfr-toc-section { display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; width: calc(100% - 8px); text-align: left;
+    background: none; border: none; padding: 4px 8px 4px 20px; margin: 0 0 0 4px;
+    cursor: pointer; font-size: var(--fs-data); color: var(--text-2); border-radius: 4px;
+    line-height: 1.35; overflow: hidden; }
+.ecfr-toc-section:hover { background: var(--surface-alt); color: var(--text); }
+.ecfr-toc-section.current { background: var(--accent-tint); color: var(--accent); font-weight: 700; }
+.ecfr-toc-section.appendix { font-style: italic; }
+/* An appendix is a top-level division of the part, so it sits at the same
+   indent as a subpart's summary rather than inside one. */
+.ecfr-toc-appendix { display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden; width: 100%; text-align: left;
+    background: none; border: none; padding: 5px 8px 5px 18px; cursor: pointer;
+    font-size: var(--fs-data); font-style: italic; color: var(--text-2);
+    border-radius: var(--r-sm); line-height: 1.35; }
+.ecfr-toc-appendix:hover { background: var(--surface-alt); color: var(--text); }
+.ecfr-toc-appendix.current { background: var(--accent-tint); color: var(--accent);
+    font-weight: 700; }
+
+.ecfr-empty { display: flex; align-items: center; justify-content: center; height: 100%; }
+.ecfr-pane-nav { display: flex; justify-content: space-between; gap: 12px; flex: none;
+    padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border);
+    font-size: var(--fs-small); }
+.ecfr-pane-nav button { max-width: 40%; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; }
+/* Annotation toolbar: armed-tool model, so the armed state has to be
+   unmistakable — it changes what a drag in the text does. */
+.ecfr-toolbar { display: flex; align-items: center; gap: 4px; flex: none;
+    flex-wrap: wrap; padding: 0 0 10px; margin-bottom: 10px;
+    border-bottom: 1px solid var(--border); }
+.ecfr-toolbar:empty { display: none; }
+.ecfr-tool { min-width: 28px; height: 26px; padding: 0 6px; background: var(--surface-alt);
+    border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-2);
+    font-size: var(--fs-data); line-height: 1; cursor: pointer; }
+.ecfr-tool:hover:not(:disabled) { background: var(--surface); color: var(--text); }
+.ecfr-tool:disabled { opacity: .4; cursor: default; }
+.ecfr-tool.armed { background: var(--accent); border-color: var(--accent); color: var(--on-accent);
+    font-weight: 700; }
+.ecfr-tool.tool-underline { text-decoration: underline; }
+.ecfr-tool.tool-strike { text-decoration: line-through; }
+.ecfr-tool-swatches { display: flex; gap: 3px; margin-left: 4px; }
+.ecfr-tool-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+.ecfr-swatch { width: 18px; height: 18px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; padding: 0; }
+.ecfr-swatch.armed { border-color: var(--text); }
+.ecfr-tool-hint { margin-left: 10px; color: var(--text-2); font-size: var(--fs-caption); }
+
+/* Reading frames: 1 (single) or 2 (compare) side by side, each scrolling
+   independently under a header that names the version it's showing. */
+.ecfr-frames { display: flex; gap: 12px; flex: 1; min-height: 0;
+    overflow-x: auto; scroll-snap-type: x proximity; }
+/* The reading measure lives here rather than on the grid column, so a wide
+   window is actually filled (rails, chrome, a second frame) while a single
+   column of running text still stops at a comfortable line length instead
+   of stretching to 1400px. Two frames are each narrow enough already. */
+.ecfr-frames[data-count="1"] .ecfr-section { max-width: 60rem; margin: 0 auto; }
+/* flex-basis 40% is what puts ~2.5 frames on screen at three or more: they
+   can't shrink below it, so the row overflows and scrolls instead of
+   squeezing every frame into an unreadable column. One or two frames still
+   divide the width evenly, because there's slack to grow into. */
+.ecfr-frame { flex: 1 0 40%; min-width: 300px; scroll-snap-align: start;
+    display: flex; flex-direction: column;
+    border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
+.ecfr-frame.dragging { opacity: .5; }
+.ecfr-frame.drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.ecfr-frame-grip { flex: none; cursor: grab; color: var(--text-muted);
+    font-size: var(--fs-data); line-height: 1; letter-spacing: -1px; }
+.ecfr-frame-head[draggable="true"] { cursor: grab; }
+.ecfr-frame-head:active { cursor: grabbing; }
+/* A live frame is visually distinct at a glance: its text is not the
+   snapshot the rest of the app reasons about. */
+.ecfr-frame.live { border-left: 3px solid var(--accent); }
+/* nowrap is load-bearing: every frame's header must be exactly one line tall,
+   or a frame carrying the scratch warning pushes its body down and its text
+   stops lining up with the frame beside it. The provenance label ellipsises
+   to make room instead. */
+.ecfr-frame-head { display: flex; align-items: center; gap: 8px; flex: none;
+    flex-wrap: nowrap; padding: 7px 10px; background: var(--surface-alt);
+    border-bottom: 1px solid var(--border); }
+/* Scratch-mark warning, in the live frame's OWN header, beside the label that
+   says it's live — a fact about this frame, stated on this frame. Persistent
+   chrome, not a toast: a toast fades and the mark outlives it, at which point
+   a scratch mark looks exactly like a saved one. The full sentence is in the
+   tooltip; this stays short so the header stays one line. */
+.ecfr-scratch-warn { flex: none; padding: 2px 7px; border-radius: 999px;
+    background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-bd);
+    font-size: var(--fs-nano); font-weight: 700; line-height: 1.4; white-space: nowrap;
+    cursor: help; }
+/* The picker only has to be pickable — it names the source, which the
+   provenance beside it names again along with the exact version. Capped so it
+   stops stealing width from the one label that carries information the other
+   doesn't: the date. */
+.ecfr-frame-source { flex: 0 1 auto; max-width: 8.5rem; font-size: var(--fs-caption);
+    padding: 2px 4px; }
+/* This must name the exact version on screen, never just the source — it's
+   the whole reason a frame has a header. It gets the slack. */
+.ecfr-frame-provenance { flex: 1 1 auto; min-width: 0; font-size: var(--fs-caption);
+    font-weight: 700; color: var(--text-2); white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; }
+.ecfr-frame-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 22px 40px; }
+/* Only ever on the frame the annotator is bound to — a paint tool is armed
+   and dragging here will mark the text up. */
+.ecfr-frame-body.annotating { cursor: crosshair; }
+/* A frame holds a whole unit now: one article per section, stacked. The rule
+   between them is what makes a subpart read as a sequence of sections rather
+   than one undifferentiated wall. */
+.ecfr-section + .ecfr-section { margin-top: 30px; padding-top: 24px;
+    border-top: 2px solid var(--border); }
+.ecfr-section.current > .ecfr-section-head .ecfr-citation { color: var(--accent); }
+.ecfr-section-head { display: flex; align-items: center; gap: 6px; }
+.ecfr-section-head .ecfr-star { opacity: 0; }
+.ecfr-section:hover .ecfr-star, .ecfr-section-head .ecfr-star.on { opacity: 1; }
+/* Reserve space for text that hasn't been filled in yet, so the scrollbar
+   doesn't lurch as sections resolve under you. */
+.ecfr-section-pending { min-height: 90px; }
+/* Which unit this frame is showing. Frame CHROME, outside the scroller —
+   sticky inside it stuck to the padding edge and let text scroll through the
+   gap above it. It doesn't move, because what it says doesn't change as you
+   scroll: the unit is the page. */
+.ecfr-unit-label { flex: none; display: flex; align-items: baseline; gap: 8px;
+    padding: 6px 12px; background: var(--surface-alt);
+    border-bottom: 1px solid var(--border); }
+.ecfr-unit-part { font-size: var(--fs-caption); font-weight: 700; color: var(--accent);
+    text-transform: uppercase; letter-spacing: .04em; }
+.ecfr-unit-name { font-size: var(--fs-caption); color: var(--text-2); flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ecfr-unit-count { font-size: var(--fs-nano); color: var(--text-muted); }
+
+.ecfr-citation { font-size: var(--fs-small); font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: .03em; }
+.ecfr-heading { font-size: var(--fs-heading); font-weight: 700; color: var(--text);
+    margin: 4px 0 10px; line-height: 1.35; }
+.ecfr-meta { font-size: var(--fs-small); color: var(--text-muted); line-height: 1.6;
+    margin-bottom: 18px; }
+.ecfr-meta b { color: var(--text-2); font-weight: 600; }
+.ecfr-blocks { font-size: var(--fs-body); line-height: 1.65; color: var(--text); }
+.ecfr-block { margin: 0 0 12px; }
+.ecfr-table-wrap { margin: 16px 0; overflow-x: auto; }
+.ecfr-table { border-collapse: collapse; width: 100%; font-size: var(--fs-data); }
+.ecfr-table caption { text-align: left; font-weight: 600; font-size: var(--fs-data);
+    color: var(--text-2); margin-bottom: 6px; caption-side: top; }
+.ecfr-table th, .ecfr-table td { border: 1px solid var(--border); padding: 6px 9px;
+    text-align: left; vertical-align: top; }
+.ecfr-table th { background: var(--thead-bg); color: var(--thead-text); font-weight: 600; }
+.ecfr-table-footnotes { font-size: var(--fs-caption); color: var(--text-muted); margin-top: 6px;
+    line-height: 1.5; }
+
+.ecfr-annotations-head { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--text-muted); padding: 12px 14px 6px; }
+
+/* Right-panel accordion. Native <details> so open/close needs no JS; the
+   open state is mirrored into ecfrAccOpen purely so a re-render can restore
+   it. Sections stack, and each body scrolls with the panel as a whole. */
+.ecfr-acc { border-top: 1px solid var(--border); }
+.ecfr-acc summary { display: flex; align-items: center; gap: 6px; cursor: pointer;
+    padding: 9px 12px; list-style: none; font-size: var(--fs-caption); font-weight: 700;
+    text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); }
+.ecfr-acc summary::-webkit-details-marker { display: none; }
+.ecfr-acc summary::before { content: "▸"; width: 10px; flex: none;
+    color: var(--text-muted); font-weight: 400; }
+.ecfr-acc[open] > summary::before { content: "▾"; }
+.ecfr-acc summary:hover { color: var(--text); }
+.ecfr-acc-n { margin-left: auto; background: var(--surface-alt); border-radius: 999px;
+    padding: 1px 7px; font-size: var(--fs-nano); color: var(--text-muted); font-weight: 600; }
+.ecfr-acc-body { padding-bottom: 10px; }
+
+/* The annotation tree: every mark in Title 40, part > subpart > section,
+   browsable from wherever you happen to be standing. */
+.ecfr-tree-node { display: flex; align-items: baseline; gap: 6px; width: 100%;
+    text-align: left; background: none; border: none; border-radius: var(--r-sm);
+    padding: 4px 8px; cursor: pointer; font-size: var(--fs-small); color: var(--text-2); }
+.ecfr-tree-node:hover { background: var(--surface-alt); color: var(--text); }
+/* Where you already are, so the tree tells you that without you working it out. */
+.ecfr-tree-node.here { color: var(--accent); font-weight: 700; }
+.ecfr-tree-caret { flex: none; width: 10px; color: var(--text-muted); font-size: var(--fs-caption); }
+.ecfr-tree-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; }
+.ecfr-tree-sub { margin-left: 6px; color: var(--text-muted); font-weight: 400; }
+.ecfr-tree-n { flex: none; background: var(--surface-alt); border-radius: 999px;
+    padding: 0 6px; font-size: var(--fs-nano); color: var(--text-muted); font-weight: 700; }
+.ecfr-tree-subpart { padding-left: 12px; }
+.ecfr-tree-section { padding-left: 12px; }
+.ecfr-tree-row { display: flex; align-items: baseline; gap: 6px;
+    width: calc(100% - 20px); margin-left: 20px; text-align: left; background: none;
+    border: none; border-radius: var(--r-sm); padding: 3px 6px; cursor: pointer; }
+.ecfr-tree-row:hover { background: var(--surface-alt); }
+.ecfr-tree-dot { flex: none; width: 9px; height: 9px; border-radius: 2px;
+    font-size: var(--fs-nano); line-height: 9px; text-align: center; color: var(--text-muted); }
+.ecfr-tree-dot.note { background: none; }
+.ecfr-tree-quote { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; font-size: var(--fs-caption); color: var(--text-2); font-style: italic; }
+
+/* Scope filter: widest → narrowest, left to right, mirroring the tree. */
+.ecfr-scope-bar { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 12px 10px;
+    border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+.ecfr-scope { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px;
+    background: var(--surface-alt); border: 1px solid var(--border); border-radius: 999px;
+    color: var(--text-2); font-size: var(--fs-caption); cursor: pointer; max-width: 100%; }
+.ecfr-scope:hover { color: var(--text); }
+.ecfr-scope.active { background: var(--accent-tint); border-color: var(--accent);
+    color: var(--accent); font-weight: 700; }
+.ecfr-scope-n { background: var(--border); color: var(--text-2); border-radius: 999px;
+    padding: 0 5px; font-size: var(--fs-nano); font-weight: 600; min-width: 14px; text-align: center; }
+.ecfr-scope.active .ecfr-scope-n { background: var(--accent); color: #fff; }
+/* Which section a row lives in — only rendered when that isn't the open one. */
+.ecfr-hl-where { display: block; background: none; border: none; padding: 0 0 2px;
+    color: var(--accent); font-size: var(--fs-nano); font-weight: 600; cursor: pointer;
+    text-align: left; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; }
+.ecfr-hl-where:hover { text-decoration: underline; }
+
+.ecfr-bookmark-star { display: block; width: calc(100% - 24px); margin: 0 12px 10px;
+    padding: 7px 10px; background: var(--surface-alt); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text-2); font-size: var(--fs-small); text-align: left;
+    cursor: pointer; }
+.ecfr-bookmark-star.on { background: var(--star-tint); border-color: var(--star);
+    color: var(--star); font-weight: 600; }
+.ecfr-annot-section-head { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--text-muted); padding: 10px 12px 4px;
+    border-top: 1px solid var(--border); margin-top: 4px; }
+.ecfr-highlight-item { display: flex; align-items: flex-start; gap: 6px;
+    padding: 6px 12px; font-size: var(--fs-small); }
+.ecfr-highlight-item.orphaned { opacity: .7; }
+.ecfr-highlight-item:not(.orphaned):not(.editing) { cursor: pointer; }
+.ecfr-highlight-item:not(.orphaned):not(.editing):hover { background: var(--surface-alt); }
+.ecfr-highlight-item.editing { display: block; background: var(--surface-alt); }
+.ecfr-hl-body { flex: 1; min-width: 0; }
+.ecfr-highlight-quote { flex: 1; color: var(--text-2); font-style: italic;
+    border-left: 3px solid #fde68a; padding-left: 8px; line-height: 1.4; display: block; }
+.ecfr-highlight-item.orphaned .ecfr-highlight-quote { border-left-color: var(--text-muted); }
+/* Colour/kind at a glance, so the list mirrors what's painted in the text. */
+.ecfr-hl-swatch { flex: none; width: 10px; height: 10px; border-radius: 2px;
+    margin-top: 3px; border: 1px solid rgba(0, 0, 0, .25); }
+.ecfr-hl-swatch.kind-underline { height: 3px; border-radius: 0; margin-top: 7px; }
+.ecfr-hl-swatch.kind-strike { height: 3px; border-radius: 0; margin-top: 7px; opacity: .8; }
+.ecfr-hl-comment { font-size: var(--fs-caption); color: var(--text); line-height: 1.45;
+    margin: 4px 0 0 8px; white-space: pre-wrap; }
+.ecfr-hl-controls { display: flex; align-items: center; gap: 4px; margin: 8px 0 6px; }
+.ecfr-hl-controls .spec-select { margin-left: auto; font-size: var(--fs-caption); }
+.ecfr-annot-x { flex: none; background: none; border: none; color: var(--text-muted);
+    cursor: pointer; font-size: var(--fs-caption); padding: 2px 4px; }
+.ecfr-annot-x:hover { color: var(--danger); }
+.ecfr-orphan-note { font-size: var(--fs-caption); color: var(--text-muted); padding: 4px 12px;
+    line-height: 1.4; }
+.ecfr-note-item { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.ecfr-note-item:last-child { border-bottom: none; }
+.ecfr-note-text { font-size: var(--fs-small); color: var(--text); line-height: 1.5;
+    white-space: pre-wrap; margin-bottom: 4px; }
+.ecfr-note-textarea { width: 100%; min-height: 56px; resize: vertical;
+    font-family: inherit; font-size: var(--fs-small); padding: 6px 8px; border: 1px solid var(--border);
+    border-radius: var(--r-sm); background: var(--surface); color: var(--text); box-sizing: border-box; }
+.ecfr-note-actions { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.ecfr-note-new { background: var(--surface-alt); }
+
+/* The annotator paints absolutely-positioned spans in an overlay layer, so
+   the reading text itself is never mutated. The layer blends with
+   mix-blend-mode:multiply (vendor CSS), which is why dark theme needs the
+   lighter touch below rather than the same opacities. */
+
+.ecfr-frame-body .r6o-annotation { border-radius: 2px; }
+:root[data-theme="dark"] .ecfr-frame-body .r6o-span-highlight-layer { mix-blend-mode: screen; }
+
+.ws-glyph { width: 21px; height: 21px; margin-right: 9px;
+    vertical-align: -3.5px; color: var(--accent); flex-shrink: 0; }

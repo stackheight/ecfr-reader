@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DIV5 N="999" TYPE="PART" hierarchy_metadata="{&quot;citation&quot;:&quot;40 CFR Part 999&quot;}">
+  <HEAD>PART 999—STANDARDS OF PERFORMANCE FOR EXAMPLE SOURCES</HEAD>
+  <AUTH><HED>Authority:</HED><PSPACE>42 U.S.C. 7401 et seq.</PSPACE></AUTH>
+  <SOURCE><HED>Source:</HED><PSPACE>99 FR 1, Jan. 1, 2026, unless otherwise noted.</PSPACE></SOURCE>
+  <DIV8 N="999.1" TYPE="SECTION" hierarchy_metadata="{&quot;citation&quot;:&quot;40 CFR 999.1&quot;}">
+    <HEAD>§ 999.1 Applicability.</HEAD>
+    <P>(a) This part applies to every example source that commenced construction after January 1, 2026.</P>
+    <P>(b) A loose section sits outside any subpart.</P>
+  </DIV8>
+  <DIV6 N="A" TYPE="SUBPART">
+    <HEAD>Subpart A—General Provisions</HEAD>
+    <DIV8 N="999.10" TYPE="SECTION" hierarchy_metadata="{&quot;citation&quot;:&quot;40 CFR 999.10&quot;}">
+      <HEAD>§ 999.10 Definitions.</HEAD>
+      <P><I>Spark ignition engine</I> means an engine that uses a spark plug to ignite the mixture.</P>
+      <P>(1) The first numbered paragraph.</P>
+      <P>(2) The second numbered paragraph, with a <E T="03">figure</E> inside.</P>
+    </DIV8>
+    <DIV8 N="999.11" TYPE="SECTION" hierarchy_metadata="{&amp;quot;citation&amp;quot;:&amp;quot;40 CFR 999.11&amp;quot;}">
+      <HEAD>§ 999.11 Emission standards.</HEAD>
+      <P>(a) Table 1 of this section lists the standards.</P>
+      <TABLE>
+        <CAPTION>Table 1 to § 999.11—Emission Standards</CAPTION>
+        <THEAD><TR><TH>Engine type</TH><TH>NOx (g/HP-hr)</TH><TH>CO (g/HP-hr)</TH></TR></THEAD>
+        <TBODY>
+          <TR><TD rowspan="2">Non-emergency</TD><TD>2.0</TD><TD>4.0</TD></TR>
+          <TR><TD>1.0</TD><TD>2.0</TD></TR>
+          <TR><TD>Emergency</TD><TD>3.0</TD><TD>5.0</TD></TR>
+        </TBODY>
+        <TFOOT><TR><TD>Standards apply at full load.</TD></TR></TFOOT>
+      </TABLE>
+      <P>(b) A graphic follows. <img src="er01ja26.000"/></P>
+    </DIV8>
+  </DIV6>
+  <DIV6 N="B" TYPE="SUBPART">
+    <HEAD>Subpart B—Monitoring</HEAD>
+    <AUTH><HED>Authority:</HED><PSPACE>42 U.S.C. 7414.</PSPACE></AUTH>
+    <DIV8 N="999.20" TYPE="SECTION" hierarchy_metadata="{&quot;citation&quot;:&quot;40 CFR 999.20&quot;}">
+      <HEAD>§ 999.20 Recordkeeping.</HEAD>
+      <P>Keep records for five years.</P>
+    </DIV8>
+  </DIV6>
+  <DIV9 N="Appendix A to Part 999" TYPE="APPENDIX" hierarchy_metadata="{&quot;citation&quot;:&quot;40 CFR Part 999, Appendix A&quot;}">
+    <HEAD>Appendix A to Part 999—Test Methods</HEAD>
+    <P>Method 1. Measure the thing.</P>
+  </DIV9>
+</DIV5>

@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ecfr-reader"
+version = "1.0.0"
+description = "A local-first reader for 40 CFR: fetch the eCFR, read it offline, mark it up, diff it against ecfr.gov."
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.10"
+authors = [{ name = "Kyle Gregory" }]
+dependencies = ["Flask>=3.1", "beautifulsoup4>=4.12", "lxml>=5"]
+
+[project.scripts]
+ecfr-reader = "ecfr_reader.__main__:main"
+
+[project.urls]
+Repository = "https://github.com/SpottedHound/ecfr-reader"
+
+[tool.setuptools.packages.find]
+include = ["ecfr_reader*"]
+
+[tool.setuptools.package-data]
+ecfr_reader = ["static/**/*"]

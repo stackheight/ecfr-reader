@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ecfr-reader</title>
+    <!-- The annotator's own sheet first: it sets a few globals
+         (::selection, overscroll) that the app's styles override. -->
+    <link rel="stylesheet" href="vendor/text-annotator/text-annotator.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script>try{var _t=localStorage.getItem('theme');document.documentElement.dataset.theme=(_t==='dark')?'dark':'light';}catch(e){document.documentElement.dataset.theme='light';}</script>
+</head>
+<body>
+    <header>
+        <span class="brand" onclick="goEcfrHome()" title="Dashboard"><span class="mark">§</span>ecfr-reader</span>
+        <nav class="workspace-nav">
+            <button class="ws-btn active" id="ws-ecfr" data-ws="ecfr">eCFR</button>
+        </nav>
+        <div class="theme-toggle" style="margin-left:auto">
+            <button class="theme-opt" data-theme="light" title="Light theme">Light</button>
+            <button class="theme-opt" data-theme="dark" title="Dark theme">Dark</button>
+        </div>
+    </header>
+
+    <div class="facilities-home" id="ecfr-workspace" style="display:block;"></div>
+
+    <!-- @recogito/text-annotator 3.4.10 — UMD build only (global RecogitoJS).
+         The shim is REQUIRED: the published bundle keeps one unstripped
+         `process.env.NODE_ENV` guard that a bundler would normally replace;
+         without it createTextAnnotator() throws and nothing annotates. -->
+    <script>window.process = window.process || { env: { NODE_ENV: "production" } };</script>
+    <script src="vendor/text-annotator/text-annotator.umd.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/ecfr-annotator.js"></script>
+    <script src="js/ecfr-diff.js"></script>
+    <script src="js/ecfr.js"></script>
+</body>
+</html>
