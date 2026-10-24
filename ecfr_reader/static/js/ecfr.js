@@ -730,11 +730,11 @@ function paintEcfrDashboard() {
     </div>
     <div class="home-toolbar">
         <button class="btn btn-primary" onclick="openEcfrReader()">Browse Title 40 →</button>
-        <span class="hint" style="margin-left:auto;">Notify-only — refreshing the corpus is a manual
-            script run (<code>ecfr-reader fetch, then ecfr-reader import</code>), never automatic.</span>
     </div>
     <div class="home-toolbar ecfr-update-toolbar">
         <button class="btn" onclick="ecfrCheckUpdates(true)" id="ecfr-check-btn">Check for updates</button>
+        <span class="hint">Notify-only — refreshing the corpus is a manual
+            script run (<code>ecfr-reader fetch, then ecfr-reader import</code>), never automatic.</span>
     </div>`;
 
     html += ecfrUpdateCardHtml(s);
