@@ -327,7 +327,8 @@ function ecfrAccHtml(id, title, count, body) {
 const ECFR_SOURCES = {
     local: {
         name: "Local snapshot",
-        label: () => `Local snapshot — eCFR as of ${(ecfrStatus && ecfrStatus.snapshot_date) || "date unknown"}`,
+        label: () => { const a = ecfrLocalAmendment();
+            return `Local snapshot — eCFR as of ${(ecfrStatus && ecfrStatus.snapshot_date) || "date unknown"}${a ? ` · text as amended ${a}` : ""}`; },
         editable: true,
         persists: true,
         // Keyed like live, not a single global section. That symmetry is what
@@ -503,6 +504,23 @@ function ecfrTimelineTicks() {
     return ticks;
 }
 
+// The amendment a snapshot's text corresponds to: the last amendment date
+// on or before the snapshot's own date. "Local snapshot 2026-07-28" names
+// the day the picture was taken; the text in it is whatever ecfr.gov had
+// published by then, which is this amendment.
+function ecfrAmendmentFor(ticks, date) {
+    let best = null;
+    ticks.forEach(t => { if (t.kind === "version" && t.date <= date) best = t; });
+    return best;
+}
+
+function ecfrLocalAmendment() {
+    const ticks = ecfrTimelineTicks();
+    const local = ticks.find(t => t.kind === "local");
+    const a = local && ecfrAmendmentFor(ticks, local.date);
+    return a ? a.date : null;
+}
+
 function ecfrRenderTimeline() {
     const el = document.getElementById("ecfr-timeline");
     if (!el) return;
@@ -515,16 +533,17 @@ function ecfrRenderTimeline() {
     const ticks = ecfrTimelineTicks();
     if (!ticks.length) { el.innerHTML = ""; return; }
     const showing = new Set(ecfrFrames.map(f => f.source));
+    const holds = t => { const a = ecfrAmendmentFor(ticks, t.date); return a ? ` — holds the text as amended ${a.date}` : ""; };
     const tickHtml = ticks.map(t => {
         const label = t.kind === "local" ? "Local" : t.kind === "live" ? "Live" : t.date.slice(0, 7);
-        const title = (t.kind === "local" ? `Your local snapshot: the eCFR as it stood on ${t.date} (what \`ecfr_reader fetch\` downloaded)`
-            : t.kind === "live" ? `Live ecfr.gov: the text as it stands today, ${t.date}`
+        const title = (t.kind === "local" ? `Your local snapshot: the eCFR as it stood on ${t.date} (what \`ecfr_reader fetch\` downloaded)${holds(t)}`
+            : t.kind === "live" ? `Live ecfr.gov: the text as it stands today, ${t.date}${holds(t)}`
             : `Amended ${t.date}${t.issue && t.issue !== t.date ? ` (in effect ${t.issue})` : ""}${
                 t.sections ? ` — ${t.sections.length} section${t.sections.length === 1 ? "" : "s"}: ${t.sections.join(", ")}` : ""}${
                 t.removed ? " — removed" : t.substantive ? " — substantive" : ""}`)
             + " — click to open this version in a new frame beside this one (fetched from ecfr.gov once, then kept)";
         return `<button class="ecfr-tick ${t.kind} ${showing.has(t.id) ? "on" : ""} ${t.removed ? "removed" : ""}"
-            data-date="${escAttr(t.date)}" title="${escAttr(title)}"
+            data-id="${escAttr(t.id)}" data-date="${escAttr(t.date)}" title="${escAttr(title)}"
             onclick="ecfrOpenVersionFrame(${escJs(t.id)})">
             <span class="ecfr-tick-mark"></span><span class="ecfr-tick-label">${esc(label)}</span></button>`;
     }).join("");
@@ -535,8 +554,27 @@ function ecfrRenderTimeline() {
                 unit ? " across its sections" : ""} · click a date to open that version in a new frame beside this one — fetched from ecfr.gov once, then kept; or pick it from a frame's source menu</span>
             <span class="ecfr-timeline-legend"><i class="lg version"></i>amendment <i class="lg local"></i>Local <i class="lg live"></i>Live</span>
         </div>
-        <div class="ecfr-timeline-rail">${tickHtml}</div>`;
+        <div class="ecfr-timeline-rail">${tickHtml}${ecfrTimelineLinksHtml(ticks)}</div>`;
     ecfrLayoutTimeline();
+}
+
+// Under the rail, an arrow from each snapshot back to the amendment whose
+// text it holds — the answer to "which of these dates is my Local copy?".
+// When Local and Live hold the same amendment there is one arrow for both.
+function ecfrTimelineLinksHtml(ticks) {
+    const local = ticks.find(t => t.kind === "local"), live = ticks.find(t => t.kind === "live");
+    const aLocal = local && ecfrAmendmentFor(ticks, local.date);
+    const aLive = live && ecfrAmendmentFor(ticks, live.date);
+    const link = (cls, from, to, text) => `<div class="ecfr-tick-link ${cls}" data-from="${escAttr(from.id)}" data-to="${escAttr(to.id)}"
+        title="${escAttr(`${text}: the text as amended ${from.date}`)}"><span class="ecfr-tick-link-label">${esc(text)} = ${esc(from.date)}</span></div>`;
+    let html = "";
+    if (aLocal && aLive && aLocal.id === aLive.id) {
+        html += link("local", aLocal, live, "Local & Live");
+    } else {
+        if (aLocal) html += link("local", aLocal, local, "Local");
+        if (aLive) html += link("live", aLive, live, "Live");
+    }
+    return html;
 }
 
 // A tick opens that version in a reading frame beside the ones you have
@@ -582,6 +620,17 @@ function ecfrLayoutTimeline() {
     for (let i = xs.length - 2; i >= 0; i--) xs[i] = Math.min(xs[i], xs[i + 1] - ECFR_TICK_GAP);  // …and the rest keep their gap
     const shift = Math.max(0, pad - xs[0]);
     ticks.forEach((t, i) => { t.style.left = `${(xs[i] + shift).toFixed(1)}px`; });
+    // The rail is only as tall as what it draws: ticks, plus one or two arrows.
+    const links = rail.querySelectorAll(".ecfr-tick-link");
+    rail.style.height = links.length === 0 ? "40px" : rail.querySelector(".ecfr-tick-link.live") ? "58px" : "46px";
+    const xOf = {};
+    ticks.forEach((t, i) => { xOf[t.dataset.id] = xs[i] + shift; });
+    rail.querySelectorAll(".ecfr-tick-link").forEach(l => {
+        const a = xOf[l.dataset.from], b = xOf[l.dataset.to];
+        if (a === undefined || b === undefined || b <= a) { l.style.display = "none"; return; }
+        l.style.left = `${a.toFixed(1)}px`;
+        l.style.width = `${(b - a).toFixed(1)}px`;
+    });
 }
 
 window.addEventListener("resize", () => { clearTimeout(window._ecfrTlResize);

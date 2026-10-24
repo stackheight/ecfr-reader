@@ -467,7 +467,24 @@ body.ecfr-resizing { cursor: col-resize; user-select: none; }
 .ecfr-timeline { flex: none; padding: 2px 10px 6px; border-bottom: 1px solid var(--border);
     overflow-x: auto; overflow-y: hidden; }
 .ecfr-timeline:empty { display: none; }
-.ecfr-timeline-rail { position: relative; height: 40px; margin: 2px 0 0; }
+.ecfr-timeline-rail { position: relative; height: 58px; margin: 2px 0 0; }
+/* Under the ticks: a dashed arrow from a snapshot back to the amendment it
+   holds, arrowhead at the amendment end. Local's sits above Live's so the
+   two never print on top of each other. */
+.ecfr-tick-link { position: absolute; top: 34px; height: 0; border-top: 2px dashed var(--text-muted);
+    pointer-events: auto; }
+.ecfr-tick-link::before { content: ""; position: absolute; left: -1px; top: -6px; border: 5px solid transparent;
+    border-right: 7px solid var(--text-muted); border-left: 0; }
+.ecfr-tick-link::after { content: ""; position: absolute; right: -1px; top: -4px; width: 2px; height: 7px;
+    background: var(--text-muted); }
+.ecfr-tick-link.live { top: 48px; border-top-color: var(--ok); }
+.ecfr-tick-link.live::before { border-right-color: var(--ok); }
+.ecfr-tick-link.live::after { background: var(--ok); }
+.ecfr-tick-link-label { position: absolute; right: 8px; top: -9px; font-size: .68rem; line-height: 1;
+    padding: 2px 5px; border-radius: 3px; background: var(--surface); color: var(--text-muted);
+    font-family: var(--font-data); white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden;
+    text-overflow: ellipsis; }
+.ecfr-tick-link.live .ecfr-tick-link-label { color: var(--ok); }
 .ecfr-timeline-rail::before { content: ""; position: absolute; left: 12px; right: 12px; top: 7px;
     border-top: 2px solid var(--border-strong); }
 .ecfr-tick { position: absolute; top: 0; transform: translateX(-50%); background: none; border: none;
