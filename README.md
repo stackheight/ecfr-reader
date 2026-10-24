@@ -26,10 +26,11 @@ cd ecfr-reader
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 
-export ECFR_CONTACT=you@example.org     # who to reach about your requests (see below)
-python3 -m ecfr_reader fetch            # ~95 MB of XML, 50 parts, a couple of minutes
-python3 -m ecfr_reader import           # builds data/ecfr.db (~170 MB), about 20 s
-python3 -m ecfr_reader serve            # http://127.0.0.1:5000
+export ECFR_CONTACT=you@example.org      # who to reach about your requests (see below)
+python3 -m ecfr_reader fetch             # ~95 MB of XML, 50 parts, a couple of minutes
+python3 -m ecfr_reader import            # builds data/ecfr.db (~170 MB), about 20 s
+python3 -m ecfr_reader serve             # http://127.0.0.1:5000 or http://localhost:5000
+python3 -m ecfr_reader serve --port XXXX # serve on alternative port
 ```
 
 `python3 -m ecfr_reader status` says what the data directory holds.

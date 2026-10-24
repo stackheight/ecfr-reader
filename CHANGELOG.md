@@ -14,6 +14,10 @@ The hints after `fetch` spell the next command the way you ran this
 one (`python -m ecfr_reader import`, or `ecfr-reader import` after
 `pip install -e .`), and `import` without the packages installed says
 to run `pip install -r requirements.txt` instead of a traceback.
+The contents column reads better in a small window: part subjects wrap
+to two lines instead of ending in an ellipsis, under 1100px the
+annotations panel moves below the reading pane so the contents keep a
+readable column, and under 760px the three panes stack.
 Windows: the console output degrades gracefully on a non-UTF-8 code
 page, the README has the PowerShell steps, and the test suite runs on a
 Windows runner in CI.
