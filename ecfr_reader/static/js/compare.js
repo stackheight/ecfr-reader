@@ -99,25 +99,30 @@ function cmpRenderControls() {
     // appendix is one section, and loose sections aren't a division ecfr.gov
     // serves — so the switch is there but off for those.
     const canUnit = typeof ecfrUnitId === "function" && !!ecfrUnitId();
-    const scope = cmpKey ? `<span class="cmp-flags cmp-scope">
-            <button class="cmp-flag ${unit ? "" : "on"}" onclick="cmpSetScope('section')"
+    const scope = `<span class="cmp-flags cmp-scope">
+            <button class="cmp-flag ${unit ? "" : "on"}" ${cmpKey ? "" : "disabled"} onclick="cmpSetScope('section')"
                 title="Compare the section you're reading">this section</button>
             <button class="cmp-flag ${unit ? "on" : ""}" ${canUnit ? "" : "disabled"} onclick="cmpSetScope('unit')"
                 title="${canUnit ? "Compare every section of the subpart at once"
                     : "Only a subpart can be compared whole — an appendix is one section, and loose sections aren't a division ecfr.gov serves"}">whole subpart</button>
-        </span>` : "";
+        </span>`;
     const options = cmpVersionOptions();
     const sel = (id, value, label) => `<label class="cmp-field"><span>${esc(label)}</span>
         <select id="${id}" class="spec-select cmp-select" ${options.length ? "" : "disabled"}
             onchange="cmpSetSide(${escJs(id === "cmp-a" ? "a" : "b")}, this.value)">${
             options.map(o => `<option value="${escAttr(o.id)}" ${o.id === value ? "selected" : ""}>${esc(o.label)}</option>`).join("")
         }</select></label>`;
+    // Stacked, one thing per line, so a long section heading on the first
+    // line can't push the controls under it around.
     el.innerHTML = `
-        <div class="cmp-row cmp-section-line">${section}${scope}${
+        <div class="cmp-row cmp-section-line">${section}${
             v && v.loading ? `<span class="cmp-muted">loading the amendment dates…</span>` :
             v && v.error ? `<span class="cmp-muted">amendment dates unavailable: ${esc(v.error)} — Local and Live still compare</span>` :
             v && v.versions ? `<span class="cmp-muted">${v.versions.length} amendment${v.versions.length === 1 ? "" : "s"} on record since 2017${
                 unit ? " across the subpart" : ""}</span>` : ""}</div>
+        <div class="cmp-head">Compare:</div>
+        <div class="cmp-row">${scope}</div>
+        <div class="cmp-head">Options:</div>
         <div class="cmp-row">
             ${sel("cmp-a", cmpA, "A — before")}
             <button class="ecfr-btn" title="Swap A and B" onclick="cmpSwap()" ${cmpA && cmpB ? "" : "disabled"}>⇄</button>
@@ -128,6 +133,8 @@ function cmpRenderControls() {
                 <button class="cmp-flag ${cmpCollapse ? "on" : ""}" onclick="cmpToggleFlag('collapse')"
                     title="Fold runs of unchanged paragraphs; one paragraph of context stays on each side of a change">--collapse</button>
             </span>
+        </div>
+        <div class="cmp-row">
             <button class="btn btn-primary" id="cmp-run" onclick="cmpRun()" ${cmpKey && cmpA && cmpB && cmpA !== cmpB ? "" : "disabled"}>Compare</button>
         </div>`;
 }

@@ -17,6 +17,15 @@ Links: `#ecfr/read/60/OOOOb` and `#ecfr/compare/60/OOOOb/A..B`. Only
 subparts open whole: an appendix is one section, and loose sections are
 not a division ecfr.gov serves.
 
+The contents rail is wider by default and can be dragged wider or
+narrower from its right edge (double-click the edge to reset; the width
+is remembered), and hovering any row in it shows the whole heading in
+place instead of the clamped two or three lines. The Compare controls
+are stacked one thing per line — the section, **Compare:** with the
+`this section | whole subpart` switch, **Options:** with A, B,
+`--word-diff` and `--collapse`, then the Compare button — so a long
+section heading can't shove them around.
+
 Also: the Compare terminal stops typing its command one character at a
 time; the command and its output just appear. The macOS window buttons are
 gone from the title bar, and the `$` prompt is a two-line prompt in the

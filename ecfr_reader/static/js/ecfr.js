@@ -1236,11 +1236,59 @@ function renderEcfrReaderShell() {
     if (!container.querySelector(".ecfr-reader")) {
         container.innerHTML = `<div class="ecfr-reader">
             <div class="ecfr-toc" id="ecfr-toc"></div>
+            <div class="ecfr-toc-resizer" title="Drag to resize the contents; double-click to reset"
+                onpointerdown="ecfrTocResizeStart(event)" ondblclick="ecfrTocResize(null)"></div>
             <div class="ecfr-pane" id="ecfr-pane"></div>
             <div class="ecfr-annotations" id="ecfr-annotations"></div>
         </div>`;
+        const saved = ecfrTocWidth();
+        if (saved) ecfrTocResize(saved);
     }
     renderEcfrReader();
+}
+
+// --- The contents rail's width ----------------------------------------
+// Dragged from its right edge and remembered; null is the stylesheet's
+// default. Headings in the tree are long ("Subpart OOOOb—Standards of
+// Performance for Crude Oil and Natural Gas Facilities for Which…"), and
+// how much of them you want to see depends on the window.
+const ECFR_TOC_MIN = 220;
+
+function ecfrTocWidth() {
+    try { const w = Number(localStorage.getItem("ecfr.tocWidth")); return w >= ECFR_TOC_MIN ? w : null; }
+    catch (e) { return null; }
+}
+
+function ecfrTocResize(px) {
+    const reader = document.querySelector(".ecfr-reader");
+    if (!reader) return;
+    if (px === null) {
+        reader.style.removeProperty("--toc-w");
+        try { localStorage.removeItem("ecfr.tocWidth"); } catch (e) { /* private mode */ }
+        return;
+    }
+    const w = Math.round(Math.max(ECFR_TOC_MIN, Math.min(px, window.innerWidth * 0.6)));
+    reader.style.setProperty("--toc-w", `${w}px`);
+    try { localStorage.setItem("ecfr.tocWidth", String(w)); } catch (e) { /* private mode */ }
+}
+
+function ecfrTocResizeStart(e) {
+    const toc = document.getElementById("ecfr-toc");
+    if (!toc || e.button !== 0) return;
+    e.preventDefault();
+    const left = toc.getBoundingClientRect().left;
+    const handle = e.currentTarget;
+    handle.classList.add("dragging");
+    document.body.classList.add("ecfr-resizing");
+    const move = ev => ecfrTocResize(ev.clientX - left);
+    const stop = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", stop);
+        handle.classList.remove("dragging");
+        document.body.classList.remove("ecfr-resizing");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
 }
 
 function renderEcfrReader() {

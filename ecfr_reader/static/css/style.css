@@ -307,22 +307,32 @@ header h1, .brand {
    46rem cap that used to live here capped the middle column itself; the
    reading measure now belongs to the frame instead (see .ecfr-frames below),
    so it only constrains the text, never the layout. */
-.ecfr-reader { display: grid; min-height: 0; height: 100%; gap: 14px;
-    grid-template-columns: clamp(260px, 20vw, 340px) minmax(0, 1fr) clamp(280px, 21vw, 380px); }
+.ecfr-reader { display: grid; min-height: 0; height: 100%; gap: 0 14px;
+    --toc-w: clamp(300px, 24vw, 440px);        /* overridden inline once the rail is dragged */
+    grid-template-columns: var(--toc-w) 0 minmax(0, 1fr) clamp(280px, 21vw, 380px); }
+/* The drag handle sits in the gap between the contents and the pane: a
+   zero-width column whose child spills over the gap on both sides. */
+.ecfr-toc-resizer { position: relative; z-index: 2; width: 14px; margin-left: -14px; cursor: col-resize;
+    align-self: stretch; }
+.ecfr-toc-resizer::after { content: ""; position: absolute; top: 0; bottom: 0; left: 5px; width: 3px;
+    border-radius: 2px; background: transparent; transition: background .15s; }
+.ecfr-toc-resizer:hover::after, .ecfr-toc-resizer.dragging::after { background: var(--accent); }
+body.ecfr-resizing { cursor: col-resize; user-select: none; }
 /* Smaller windows: the three rails would starve each other. Under 1100px the
    annotations panel moves below the reading pane (full width, its own
    scroll) so the table of contents keeps a readable column; under 760px
    everything stacks and the contents sit above the text. */
 @media (max-width: 1100px) {
-    .ecfr-reader { grid-template-columns: clamp(240px, 30vw, 320px) minmax(0, 1fr);
-        grid-template-rows: minmax(0, 1fr) minmax(0, 38%); }
-    .ecfr-toc { grid-row: 1 / span 2; }
-    .ecfr-annotations { grid-column: 2; }
+    .ecfr-reader { grid-template-columns: var(--toc-w) 0 minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) minmax(0, 38%); --toc-w: clamp(260px, 30vw, 360px); }
+    .ecfr-toc, .ecfr-toc-resizer { grid-row: 1 / span 2; }
+    .ecfr-annotations { grid-column: 3; }
 }
 @media (max-width: 760px) {
-    .ecfr-reader { grid-template-columns: minmax(0, 1fr);
+    .ecfr-reader { grid-template-columns: minmax(0, 1fr); gap: 14px;
         grid-template-rows: minmax(0, 34%) minmax(0, 1fr) minmax(0, 30%); }
     .ecfr-toc { grid-row: auto; }
+    .ecfr-toc-resizer { display: none; }
     .ecfr-annotations { grid-column: auto; }
 }
 .ecfr-toc, .ecfr-pane, .ecfr-annotations { background: var(--surface);
@@ -495,6 +505,11 @@ header h1, .brand {
    row's title tooltip. */
 .ecfr-toc-title { color: var(--text-2); min-width: 0; line-height: 1.3;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* Hover a row and the clamp comes off, so the whole heading reads in place
+   (the title tooltip is still there for the patient). */
+.ecfr-toc-part-head:hover .ecfr-toc-title, .ecfr-toc-subpart summary:hover .ecfr-toc-subpart-label,
+.ecfr-toc-section:hover, .ecfr-toc-appendix:hover, .ecfr-toc-fav:hover .ecfr-toc-fav-label {
+    -webkit-line-clamp: unset; }
 .ecfr-toc-children { padding-left: 22px; }
 .ecfr-toc-loading { padding: 6px 12px; font-size: var(--fs-small); color: var(--text-muted); }
 /* Subpart rows carry the full heading, so they wrap. The default disclosure
@@ -807,6 +822,9 @@ header h1, .brand {
     color: var(--text-2); }
 .cmp-select { max-width: none; min-width: 13rem; font-size: var(--fs-small); padding: 5px 8px; }
 .cmp-section-line { font-size: var(--fs-small); color: var(--text-2); gap: 14px; }
+.cmp-head { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--text-2); margin-top: 4px; }
+.cmp-head + .cmp-row { margin-top: -2px; }
 .cmp-chosen b { color: var(--accent); }
 .cmp-muted { color: var(--text-muted); }
 .cmp-flags { display: inline-flex; gap: 6px; align-items: center; }
@@ -835,7 +853,7 @@ header h1, .brand {
 .cmp-meta { color: #e0c36b; font-weight: 700; }
 .cmp-sec { color: #e0c36b; font-weight: 700; margin-top: 14px; }
 .cmp-sec + .cmp-sec { margin-top: 0; }
-.cmp-scope { margin-left: 4px; }
+.cmp-scope { margin-left: 0; }
 .cmp-hunk { color: #7fdcea; margin-top: 6px; }
 .cmp-same { color: #8e9aa8; }
 .cmp-del { color: #ff8078; background: rgba(255, 128, 120, .10); }
