@@ -197,6 +197,5 @@ and their licenses are listed in `THIRD_PARTY.md`.
 The text of the Code of Federal Regulations is a work of the United States
 Government and is in the public domain.
 
-The code was written with an AI assistant (Claude) under the author's
-direction, as part of a larger air-quality compliance tool from which this
-reader was extracted.
+Built with Claude Code under the author's direction; extracted from a
+larger air-quality compliance tool.
