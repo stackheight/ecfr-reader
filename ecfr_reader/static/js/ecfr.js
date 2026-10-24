@@ -391,7 +391,7 @@ async function ecfrEnsureVersion(date, key) {
 // Across the top of the pane: every date ecfr.gov amended the open section,
 // plus Local (the snapshot) and Live (today) on the same rail. It is the
 // viewer's reading aid — a click opens that version in a frame beside what
-// you have; comparing two versions is the Compare tab's job (compare.js),
+// you have; comparing two versions is the pane's Compare tab (compare.js),
 // which the rail links to.
 let ecfrVersions = null;          // {key, versions:[{date,…}], latest, local_snapshot_date} | {key, error}
 
@@ -450,8 +450,8 @@ function ecfrRenderTimeline() {
             <span class="ecfr-timeline-title">Amendment history</span>
             <span class="ecfr-timeline-note">${n} amendment${n === 1 ? "" : "s"} on record since 2017 · click a date to open that version beside this one</span>
             <span class="ecfr-timeline-legend"><i class="lg version"></i>amendment <i class="lg local"></i>Local <i class="lg live"></i>Live</span>
-            <button class="rerun-link ecfr-timeline-compare" onclick="openCompareFor(${escJs(ecfrCurrentKey)})"
-                title="Pick two versions of this section and read the difference">Compare versions →</button>
+            <button class="rerun-link ecfr-timeline-compare" onclick="ecfrSetPaneTab('compare')"
+                title="Pick two versions of this section and read the difference (the Compare tab)">Compare versions →</button>
         </div>
         <div class="ecfr-timeline-rail">${tickHtml}</div>`;
     ecfrLayoutTimeline();
@@ -915,6 +915,7 @@ async function ecfrSetCurrentSection(key, opts = {}) {
 
     syncHash(false);
     if (!opts.render) renderEcfrToc();          // move the .current highlight
+    if (ecfrPaneTab === "compare" && typeof cmpShow === "function") cmpShow();   // the Compare tab follows the section
     await ecfrLoadSectionSidecars(key);
 }
 
@@ -1612,8 +1613,58 @@ function ecfrRenderPaneNav() {
             onclick="ecfrAddFrame()">+ Add frame</button>`;
 }
 
-function renderEcfrPane() {
+// --- The pane's two tabs: Read and Compare ----------------------------
+// The pane holds both, one visible at a time, and each keeps its state
+// across a swap: the Read tab is what renderEcfrPane paints, the Compare
+// tab is compare.js's control bar and terminal, mounted once. The contents
+// sidebar feeds whichever tab is showing.
+let ecfrPaneTab = "read";
+
+// Build the pane's skeleton once (a re-render must not wipe the terminal),
+// apply the current tab, and return the Read tab's element to paint into.
+function ecfrPaneSkeleton() {
     const el = document.getElementById("ecfr-pane");
+    if (!el) return null;
+    if (!document.getElementById("ecfr-read")) {
+        el.innerHTML = `<div class="ecfr-pane-tabs" id="ecfr-pane-tabs"></div>
+            <div class="ecfr-read" id="ecfr-read"></div>
+            <div class="ecfr-compare" id="ecfr-compare"></div>`;
+    }
+    ecfrRenderPaneTabs();
+    document.getElementById("ecfr-read").hidden = ecfrPaneTab !== "read";
+    document.getElementById("ecfr-compare").hidden = ecfrPaneTab !== "compare";
+    if (typeof cmpMount === "function") cmpMount();
+    return document.getElementById("ecfr-read");
+}
+
+function ecfrRenderPaneTabs() {
+    const el = document.getElementById("ecfr-pane-tabs");
+    if (!el) return;
+    const tab = (name, label, title) => `<button class="ws-btn ${ecfrPaneTab === name ? "active" : ""}"
+        title="${escAttr(title)}" onclick="ecfrSetPaneTab(${escJs(name)})">${label}</button>`;
+    el.innerHTML = `<nav class="workspace-nav">${
+        tab("read", "Read", "The section's text, in frames")}${
+        tab("compare", "Compare", "Two versions of this section, as a diff")}</nav>
+        <span class="ecfr-pane-tabs-hint">${ecfrPaneTab === "compare"
+            ? (ecfrCurrentKey ? "the section open in the contents — pick another there to compare it"
+                              : "pick a section in the contents to compare its versions")
+            : ""}</span>`;
+}
+
+async function ecfrSetPaneTab(tab) {
+    const changed = ecfrPaneTab !== tab;
+    ecfrPaneTab = tab;
+    ecfrRenderPaneTabs();
+    const read = document.getElementById("ecfr-read");
+    const cmp = document.getElementById("ecfr-compare");
+    if (read) read.hidden = tab !== "read";
+    if (cmp) cmp.hidden = tab !== "compare";
+    if (tab === "compare" && typeof cmpShow === "function") await cmpShow();
+    syncHash(changed);
+}
+
+function renderEcfrPane() {
+    const el = ecfrPaneSkeleton();
     if (!el) return;
     if (ecfrLoading) {
         el.innerHTML = `<p class="hint" style="padding:20px;">Loading…</p>`;
@@ -2150,7 +2201,7 @@ function ecfrRedo() {
 }
 
 function ecfrHandleReaderKeydown(e) {
-    if (appScreen !== "ecfr" || !ecfrCurrentKey) return;
+    if (appScreen !== "ecfr" || !ecfrCurrentKey || ecfrPaneTab !== "read") return;
     const t = e.target;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
 

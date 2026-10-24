@@ -2,7 +2,7 @@
 // ecfr-reader — the page's shared globals, in one classic script loaded
 // before ecfr-annotator.js, ecfr-diff.js and ecfr.js: escaping helpers,
 // toasts, the single-screen "router" (the hash is #ecfr or
-// #ecfr/read/<section key>, or #compare/<key>/<A>..<B>), and the light / dark theme.
+// #ecfr/read/<section key>, or #ecfr/compare/<key>/<A>..<B>), and the light / dark theme.
 // =====================================================================
 
 const API_BASE = "";
@@ -66,15 +66,15 @@ function wsGlyph(key) {
 let _restoringHash = false;
 
 function _stateHash() {
-    if (appScreen === "compare") {
-        // a comparison is a link: #compare/<key>/<A>..<B>
-        if (!cmpKey) return "#compare";
-        let h = `#compare/${encodeURIComponent(cmpKey)}`;
+    if (!ecfrCurrentKey) return "#ecfr";
+    const key = encodeURIComponent(ecfrCurrentKey);
+    if (typeof ecfrPaneTab !== "undefined" && ecfrPaneTab === "compare") {
+        // a comparison is a link: #ecfr/compare/<key>/<A>..<B>
+        let h = `#ecfr/compare/${key}`;
         if (cmpRan && cmpA && cmpB) h += `/${encodeURIComponent(cmpA)}..${encodeURIComponent(cmpB)}`;
         return h;
     }
-    if (!ecfrCurrentKey) return "#ecfr";
-    return `#ecfr/read/${encodeURIComponent(ecfrCurrentKey)}`;
+    return `#ecfr/read/${key}`;
 }
 
 function syncHash(push) {
@@ -85,19 +85,17 @@ function syncHash(push) {
     else history.replaceState(null, "", h);
 }
 
-// Two screens — the reader ("ecfr") and Compare — one visible at a time.
-// showScreen writes the hash (a push when the screen "changed", a replace
-// otherwise — the convention ecfr.js was written against). The write is
-// deferred a microtask: callers set their state (the dashboard clears
-// ecfrCurrentKey) right AFTER calling this, and the hash must reflect it.
+// The reader is the only screen (Compare is a tab inside its pane):
+// showScreen keeps the workspace visible and writes the hash (a push when
+// the screen "changed", a replace otherwise — the convention ecfr.js was
+// written against). The write is deferred a microtask: callers set their
+// state (the dashboard clears ecfrCurrentKey) right AFTER calling this,
+// and the hash must reflect it.
 function showScreen(screen) {
     const changed = appScreen !== screen;
     appScreen = screen;
-    for (const [id, name] of [["ecfr-workspace", "ecfr"], ["compare-workspace", "compare"]]) {
-        const el = document.getElementById(id);
-        if (el) el.style.display = name === screen ? "block" : "none";
-    }
-    document.querySelectorAll(".ws-btn").forEach(b => b.classList.toggle("active", b.dataset.ws === screen));
+    const ws = document.getElementById("ecfr-workspace");
+    if (ws) ws.style.display = "block";
     queueMicrotask(() => syncHash(changed));
 }
 
@@ -112,16 +110,16 @@ async function restoreFromHash() {
     _restoringHash = true;
     try {
         const parts = location.hash.replace(/^#/, "").split("/");
-        if (parts[0] === "compare") {
-            showScreen("compare");
-            const key = parts[1] ? decodeURIComponent(parts[1]) : null;
-            const pair = parts[2] && parts[2].includes("..") ? parts[2].split("..").map(decodeURIComponent) : [null, null];
-            await renderCompare(key, pair[0], pair[1]);
+        showScreen("ecfr");
+        // 1.2.0 wrote #compare/<key>/<A>..<B>; it reads as #ecfr/compare/…
+        if (parts[0] === "compare") parts.unshift("ecfr");
+        const pair = p => p && p.includes("..") ? p.split("..").map(decodeURIComponent) : [null, null];
+        if (parts[0] === "ecfr" && parts[1] === "compare" && parts[2]) {
+            await openEcfrCompare(decodeURIComponent(parts[2]), ...pair(parts[3]));
         } else if (parts[0] === "ecfr" && parts[1] === "read" && parts[2]) {
-            showScreen("ecfr");
+            if (typeof ecfrPaneTab !== "undefined") ecfrPaneTab = "read";   // back from a compare link
             await openEcfrSection(decodeURIComponent(parts[2]));
         } else {
-            showScreen("ecfr");
             await renderEcfrDashboard();
         }
     } catch (err) {

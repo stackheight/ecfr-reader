@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.1 — 2026-10-24
+
+Compare is a tab of the reading pane — **Read | Compare** above the
+text — rather than a separate screen, so swapping back and forth is one
+click and nothing is lost either way: the Read tab keeps its frames and
+scroll position, the Compare tab keeps its output. The contents sidebar
+feeds whichever tab is showing, so Compare's own section search and
+favorites picker are gone: the section you compare is the section you
+have open. The link form is `#ecfr/compare/<key>/<A>..<B>` (1.2.0's
+`#compare/…` links still open).
+
 ## 1.2.0 — 2026-10-23
 
 **The Compare workspace.** Comparing versions moves out of the reader

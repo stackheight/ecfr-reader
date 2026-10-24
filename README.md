@@ -4,8 +4,8 @@ A local-first reader for Title 40 of the Code of Federal Regulations. It
 fetches the eCFR's XML once, keeps it in a SQLite file on your machine, and
 gives you a reader that works offline: a table of contents you can star,
 full-text search, up to six reading frames side by side (the local
-snapshot, live ecfr.gov, or any past version), a Compare tab that prints
-the difference between two versions as a git-style diff, highlights with
+snapshot, live ecfr.gov, or any past version), a Compare tab in the same
+pane that prints the difference between two versions as a git-style diff, highlights with
 comments, notes, and a check that tells you when ecfr.gov has published a
 newer issue.
 
@@ -15,7 +15,7 @@ State-level regulations maybe added in the future where practicable.
 
 ![The amendment history above a section, with a past version open beside the snapshot](docs/screenshot-timeline.png)
 
-![The Compare tab: a git-style word diff between two amendments](docs/screenshot-compare.png)
+![The Compare tab: a git-style diff between two amendments, beside the contents](docs/screenshot-compare.png)
 
 Built for air-permitting work (Title 40, parts 50–99: the Clean Air Act
 programs), but the corpus tools take any part range in Title 40.
@@ -74,9 +74,10 @@ GitHub workflow.
   every date ecfr.gov amended it (its history starts 2017), with Local and
   Live on the same rail. Click a date to open that version in a frame
   beside the one you are reading.
-- **Compare.** Its own tab. Pick a section and two versions, A (before)
-  and B (after), and the difference prints into a mock terminal as a
-  git-style unified diff: a hunk per changed paragraph, named by its
+- **Compare.** The reading pane's second tab (Read | Compare), fed by
+  the same contents sidebar. Pick two versions of the open section, A
+  (before) and B (after), and the difference prints into a mock terminal
+  as a git-style unified diff: a hunk per changed paragraph, named by its
   enumerator ("(e)"), runs of unchanged paragraphs folded to one line
   (click to show), `--word-diff` for the changed words marked inside each
   paragraph. The paragraph stays the unit of the diff — it is what the

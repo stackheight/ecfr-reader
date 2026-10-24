@@ -1,13 +1,15 @@
 // =====================================================================
-// ecfr-reader — the Compare workspace. Pick a section, pick version A
+// ecfr-reader — the Compare tab. The reading pane has two tabs, Read and
+// Compare; this is the second. The section is the one open in the
+// contents (the sidebar feeds whichever tab is showing); pick version A
 // and version B by name, press Compare, and read the difference the way
 // git would print it — in a mock terminal, because that is where diffs
-// come from and it keeps the two jobs apart: the eCFR tab is for
-// reading, this tab is for comparing.
+// come from. The tab keeps its output across a swap back to Read.
 //
 // Loaded after ecfr.js: it borrows the viewer's caches and loaders
-// (ecfrEnsureVersion, ecfrEnsureLiveSection, ecfrEnsureFavorites,
-// ecfrVersionSource) and the diff engine (ecfrDiffBlocks, ecfrDiffLines).
+// (ecfrEnsureVersion, ecfrEnsureLiveSection, ecfrVersionSource) and the
+// diff engine (ecfrDiffBlocks, ecfrDiffLines); ecfr.js owns the tab
+// strip (ecfrSetPaneTab) and calls cmpMount / cmpShow.
 // =====================================================================
 
 let cmpKey = null;          // the section being compared ("60:60.4230")
@@ -17,8 +19,6 @@ let cmpA = null;            // source ids: "local" | "live" | "version:<date>"
 let cmpB = null;
 let cmpRan = false;         // the hash carries A..B only once a comparison ran
 let cmpLocalCache = {};     // key -> the local section payload (/api/ecfr/section)
-let cmpSearchTimer = null;
-let cmpHits = [];
 let cmpTyping = null;
 let cmpRunSeq = 0;          // a run that another run overtook prints nothing
 let cmpWordDiff = (() => { try { return localStorage.getItem("ecfr.compare.wordDiff") === "1"; } catch (e) { return false; } })();
@@ -26,25 +26,32 @@ let cmpCollapse = (() => { try { return localStorage.getItem("ecfr.diffCollapse"
 
 // --- entry ------------------------------------------------------------
 
-async function goCompare() {
-    showScreen("compare");
-    await renderCompare(cmpKey, null, null);
-}
-
-// From the viewer's timeline: hand the open section across.
-async function openCompareFor(key) {
-    showScreen("compare");
-    await renderCompare(key, null, null);
-}
-
-async function renderCompare(key, a, b) {
-    const el = document.getElementById("compare-workspace");
+// The shell goes into the pane's Compare tab once; a pane re-render that
+// kept the skeleton keeps the terminal's output too.
+function cmpMount() {
+    const el = document.getElementById("ecfr-compare");
     if (!el) return;
     if (!el.querySelector(".cmp-screen")) el.innerHTML = cmpShellHtml();
-    ecfrEnsureFavorites().then(cmpRenderFavorites).catch(() => {});
-    if (key && key !== cmpKey) await cmpPickSection(key);
-    else cmpRenderControls();
-    if (key && a && b) {
+    cmpRenderControls();
+}
+
+// The tab is showing (or the section changed under it): follow the
+// contents, and re-print a run whose output a rebuild of the pane lost.
+async function cmpShow() {
+    cmpMount();
+    const key = (typeof ecfrCurrentKey !== "undefined" && ecfrCurrentKey) || null;
+    if (key !== cmpKey) { await cmpPickSection(key); return; }
+    cmpRenderControls();
+    const out = document.getElementById("cmp-out");
+    if (cmpRan && cmpA && cmpB && out && !out.querySelector(".cmp-line")) await cmpRun();
+}
+
+// From the timeline's link and from a #ecfr/compare/<key>[/<A>..<B>] link:
+// open the section in the reader, show the tab, and run the pair if given.
+async function openEcfrCompare(key, a, b) {
+    await openEcfrSection(key);
+    await ecfrSetPaneTab("compare");
+    if (a && b && cmpKey === key) {
         cmpA = a; cmpB = b;
         cmpRenderControls();
         await cmpRun();
@@ -53,12 +60,11 @@ async function renderCompare(key, a, b) {
 
 function cmpShellHtml() {
     return `<div class="cmp-screen">
-        <div class="home-title">${wsGlyph("ecfr")}Compare two versions of a section</div>
         <div class="cmp-controls" id="cmp-controls"></div>
         <div class="cmp-terminal">
             <div class="cmp-titlebar"><span class="cmp-dot r"></span><span class="cmp-dot y"></span><span class="cmp-dot g"></span>
                 <span class="cmp-title">ecfr-reader — compare</span></div>
-            <pre class="cmp-out" id="cmp-out"><span class="cmp-muted">Pick a section and two versions, then press Compare.</span></pre>
+            <pre class="cmp-out" id="cmp-out"><span class="cmp-muted">Pick two versions, then press Compare.</span></pre>
         </div>
     </div>`;
 }
@@ -71,8 +77,7 @@ function cmpRenderControls() {
     const v = cmpVersions;
     const section = cmpKey
         ? `<span class="cmp-chosen"><b>${esc(cmpMeta && cmpMeta.citation || cmpKey)}</b> ${esc(cmpMeta && cmpMeta.heading || "")}</span>`
-        : `<span class="cmp-chosen cmp-muted">no section chosen</span>`;
-    const viewerKey = (typeof ecfrCurrentKey !== "undefined") ? ecfrCurrentKey : null;
+        : `<span class="cmp-chosen cmp-muted">no section open — pick one in the contents</span>`;
     const options = cmpVersionOptions();
     const sel = (id, value, label) => `<label class="cmp-field"><span>${esc(label)}</span>
         <select id="${id}" class="spec-select cmp-select" ${options.length ? "" : "disabled"}
@@ -80,16 +85,6 @@ function cmpRenderControls() {
             options.map(o => `<option value="${escAttr(o.id)}" ${o.id === value ? "selected" : ""}>${esc(o.label)}</option>`).join("")
         }</select></label>`;
     el.innerHTML = `
-        <div class="cmp-row">
-            <label class="cmp-field cmp-grow"><span>Section</span>
-                <input type="search" id="cmp-search" class="ecfr-search-input" placeholder="Search Title 40 — a citation (60.4230) or words"
-                    oninput="cmpSearchInput(this.value)" autocomplete="off">
-                <div class="cmp-hits" id="cmp-hits"></div></label>
-            <label class="cmp-field"><span>Favorites</span>
-                <select id="cmp-favs" class="spec-select cmp-select" onchange="if (this.value) cmpPickSection(this.value)"><option value="">starred sections…</option></select></label>
-            ${viewerKey ? `<button class="ecfr-btn" onclick="cmpPickSection(${escJs(viewerKey)})"
-                title="The section open on the eCFR tab">Use ${esc(viewerKey.split(":")[1] ? "§ " + viewerKey.split(":")[1] : viewerKey)} from the viewer</button>` : ""}
-        </div>
         <div class="cmp-row cmp-section-line">${section}${
             v && v.loading ? `<span class="cmp-muted">loading the amendment dates…</span>` :
             v && v.error ? `<span class="cmp-muted">amendment dates unavailable: ${esc(v.error)} — Local and Live still compare</span>` :
@@ -106,8 +101,6 @@ function cmpRenderControls() {
             </span>
             <button class="btn btn-primary" id="cmp-run" onclick="cmpRun()" ${cmpKey && cmpA && cmpB && cmpA !== cmpB ? "" : "disabled"}>Compare</button>
         </div>`;
-    cmpRenderFavorites();
-    cmpRenderHits();
 }
 
 function cmpVersionOptions() {
@@ -125,42 +118,13 @@ function cmpVersionOptions() {
     return out;
 }
 
-function cmpRenderFavorites() {
-    const sel = document.getElementById("cmp-favs");
-    if (!sel || typeof ecfrFavorites === "undefined") return;
-    const secs = ecfrFavorites.filter(f => f.node_type === "section");
-    sel.innerHTML = `<option value="">${secs.length ? "starred sections…" : "no starred sections"}</option>` +
-        secs.map(f => `<option value="${escAttr(f.node_key)}" ${f.node_key === cmpKey ? "selected" : ""}>${esc(f.citation || f.node_key)} ${esc((f.label || "").slice(0, 60))}</option>`).join("");
-}
-
-function cmpSearchInput(q) {
-    clearTimeout(cmpSearchTimer);
-    const query = (q || "").trim();
-    if (query.length < 2) { cmpHits = []; cmpRenderHits(); return; }
-    cmpSearchTimer = setTimeout(async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/ecfr/search?q=${encodeURIComponent(query)}&limit=8`);
-            const d = await res.json();
-            cmpHits = res.ok ? (d.results || []) : [];
-        } catch (e) { cmpHits = []; }
-        cmpRenderHits();
-    }, 250);
-}
-
-function cmpRenderHits() {
-    const el = document.getElementById("cmp-hits");
-    if (!el) return;
-    el.innerHTML = cmpHits.map(h => `<button class="cmp-hit" onclick="cmpPickSection(${escJs(h.section_key)})">
-        <b>${esc(h.citation || h.section_key)}</b> ${esc((h.heading || "").slice(0, 80))}</button>`).join("");
-}
-
 async function cmpPickSection(key) {
-    cmpKey = key; cmpMeta = null; cmpVersions = { loading: true }; cmpA = cmpB = null; cmpRan = false;
-    cmpHits = [];
-    const search = document.getElementById("cmp-search");
-    if (search) search.value = "";
+    cmpKey = key; cmpMeta = null; cmpVersions = key ? { loading: true } : null; cmpA = cmpB = null; cmpRan = false;
+    const out = document.getElementById("cmp-out");
+    if (out) out.innerHTML = `<span class="cmp-muted">${key ? "Pick two versions, then press Compare." : "Pick a section in the contents to compare its versions."}</span>`;
     cmpRenderControls();
-    syncHash(true);
+    syncHash(false);
+    if (!key) return;
     try {
         const local = await cmpLocalSection(key);
         cmpMeta = { citation: local.citation, heading: local.heading };
@@ -327,6 +291,3 @@ function cmpUnfold(id, strip) {
     const note = strip.querySelector(".cmp-muted");
     if (note) note.textContent = el.hidden ? "(click to show)" : "(click to hide)";
 }
-
-// --- Nav wiring ---
-document.getElementById("ws-compare").addEventListener("click", goCompare);
