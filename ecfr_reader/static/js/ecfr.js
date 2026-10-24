@@ -478,7 +478,7 @@ function ecfrOpenVersionFrame(id) {
 // label's width: a run of amendments weeks apart on a ten-year rail would
 // otherwise print on top of each other. Pixels, measured, so the minimum
 // gap is real; the rail grows (and scrolls) when the ticks need more room.
-const ECFR_TICK_GAP = 64;
+const ECFR_TICK_GAP = 84;
 
 function ecfrLayoutTimeline() {
     const rail = document.querySelector("#ecfr-timeline .ecfr-timeline-rail");
@@ -2368,7 +2368,7 @@ function ecfrNoteItemHtml(n) {
         ${ecfrWhereHtml(n)}
         <div class="ecfr-note-text">${esc(n.note)}</div>
         <div class="ecfr-note-actions">
-            <span class="hint" style="font-size:.68rem;">${esc(fmtDate(n.updated_at || n.created_at))}</span>
+            <span class="hint" style="font-size:var(--fs-caption);">${esc(fmtDate(n.updated_at || n.created_at))}</span>
             <button class="rerun-link" onclick="ecfrStartEditNote(${n.id})">Edit</button>
             <button class="rerun-link" onclick="ecfrDeleteNoteClick(${n.id})">Delete</button>
         </div>

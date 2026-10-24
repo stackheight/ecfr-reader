@@ -14,3 +14,6 @@ __pycache__/
 .pytest_cache/
 *.log
 *.egg-info/
+
+# Claude Code guidance, kept local
+CLAUDE.md

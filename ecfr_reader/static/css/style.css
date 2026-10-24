@@ -31,13 +31,13 @@
     /* ── Instrument scale (frontend-refresh chunk 1) ──────────────────
        Type: eight named steps — pick the nearest, never a new literal.
        Radii: three shapes. Spacing: use in new/edited rules. */
-    --fs-nano: .62rem;      /* densest chrome */
-    --fs-caption: .70rem;   /* captions, hints, pills */
-    --fs-small: .76rem;     /* buttons, chips, meta */
-    --fs-data: .82rem;      /* table cells, inputs */
-    --fs-body: .88rem;      /* body copy */
-    --fs-title: 1.05rem;    /* panel titles */
-    --fs-heading: 1.35rem;  /* screen headings */
+    --fs-nano: .72rem;      /* densest chrome */
+    --fs-caption: .80rem;   /* captions, hints, pills */
+    --fs-small: .86rem;     /* buttons, chips, meta */
+    --fs-data: .92rem;      /* table cells, inputs */
+    --fs-body: 1rem;        /* body copy */
+    --fs-title: 1.15rem;    /* panel titles */
+    --fs-heading: 1.45rem;  /* screen headings */
     --fs-display: 2rem;     /* KPI figures */
     --r-sm: 6px;
     --r-md: 10px;
@@ -457,12 +457,12 @@ header h1, .brand {
 .ecfr-timeline { flex: none; padding: 2px 10px 6px; border-bottom: 1px solid var(--border);
     overflow-x: auto; overflow-y: hidden; }
 .ecfr-timeline:empty { display: none; }
-.ecfr-timeline-rail { position: relative; height: 36px; margin: 2px 0 0; }
+.ecfr-timeline-rail { position: relative; height: 40px; margin: 2px 0 0; }
 .ecfr-timeline-rail::before { content: ""; position: absolute; left: 12px; right: 12px; top: 7px;
     border-top: 2px solid var(--border-strong); }
 .ecfr-tick { position: absolute; top: 0; transform: translateX(-50%); background: none; border: none;
     padding: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px;
-    color: var(--text-2); font-size: var(--fs-nano); font-family: var(--font-data); }
+    color: var(--text-2); font-size: var(--fs-caption); font-family: var(--font-data); }
 .ecfr-tick-mark { width: 12px; height: 12px; border-radius: 50%; background: var(--surface);
     border: 2px solid var(--accent); }
 .ecfr-tick.local .ecfr-tick-mark { border-color: var(--text-2); border-radius: 2px; }
@@ -476,13 +476,13 @@ header h1, .brand {
 .ecfr-timeline-caption { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 6px 2px 0; }
 .ecfr-timeline-title { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase;
     letter-spacing: .04em; color: var(--text-2); }
-.ecfr-timeline-legend { font-size: var(--fs-nano); color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
+.ecfr-timeline-legend { font-size: var(--fs-caption); color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
 .ecfr-timeline-legend .lg { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--accent); margin-left: 6px; }
 .ecfr-timeline-legend .lg.local { border-color: var(--text-2); border-radius: 2px; }
 .ecfr-timeline-legend .lg.live { border-color: var(--ok); background: var(--ok-bg); }
 .ecfr-timeline-compare { margin-left: auto; font-size: var(--fs-caption); }
 .ecfr-tick-label { white-space: nowrap; line-height: 1.2; }
-.ecfr-timeline-note { font-size: var(--fs-nano); color: var(--text-muted); font-style: italic; }
+.ecfr-timeline-note { font-size: var(--fs-caption); color: var(--text-muted); font-style: italic; }
 
 .ecfr-toc-part-head { display: flex; align-items: baseline; gap: 6px; width: 100%;
     text-align: left; background: none; border: none; padding: 6px 10px; cursor: pointer;
@@ -788,7 +788,7 @@ header h1, .brand {
 .ecfr-pane-tabs { display: flex; align-items: center; gap: 12px; flex: none; margin-bottom: 10px; }
 .ecfr-pane-tabs .workspace-nav { padding: 2px; }
 .ecfr-pane-tabs .ws-btn { padding: 4px 12px; font-size: var(--fs-small); }
-.ecfr-pane-tabs-hint { font-size: var(--fs-nano); color: var(--text-muted); font-style: italic; }
+.ecfr-pane-tabs-hint { font-size: var(--fs-caption); color: var(--text-muted); font-style: italic; }
 .ecfr-read, .ecfr-compare { display: contents; }
 .ecfr-read[hidden], .ecfr-compare[hidden] { display: none; }
 
