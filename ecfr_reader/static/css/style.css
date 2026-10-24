@@ -480,7 +480,6 @@ header h1, .brand {
 .ecfr-timeline-legend .lg { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--accent); margin-left: 6px; }
 .ecfr-timeline-legend .lg.local { border-color: var(--text-2); border-radius: 2px; }
 .ecfr-timeline-legend .lg.live { border-color: var(--ok); background: var(--ok-bg); }
-.ecfr-timeline-compare { margin-left: auto; font-size: var(--fs-caption); }
 .ecfr-tick-label { white-space: nowrap; line-height: 1.2; }
 .ecfr-timeline-note { font-size: var(--fs-caption); color: var(--text-muted); font-style: italic; }
 

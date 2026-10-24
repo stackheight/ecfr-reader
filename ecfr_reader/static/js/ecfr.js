@@ -450,8 +450,6 @@ function ecfrRenderTimeline() {
             <span class="ecfr-timeline-title">Amendment history</span>
             <span class="ecfr-timeline-note">${n} amendment${n === 1 ? "" : "s"} on record since 2017 · click a date to open that version beside this one</span>
             <span class="ecfr-timeline-legend"><i class="lg version"></i>amendment <i class="lg local"></i>Local <i class="lg live"></i>Live</span>
-            <button class="rerun-link ecfr-timeline-compare" onclick="ecfrSetPaneTab('compare')"
-                title="Pick two versions of this section and read the difference (the Compare tab)">Compare versions →</button>
         </div>
         <div class="ecfr-timeline-rail">${tickHtml}</div>`;
     ecfrLayoutTimeline();
