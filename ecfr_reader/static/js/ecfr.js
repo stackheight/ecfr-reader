@@ -455,6 +455,7 @@ async function ecfrLoadVersions(key) {
     }
     ecfrRenderTimeline();
     ecfrRefreshFrameSelects();
+    ecfrRefreshProvenance();       // the Local header names the amendment it holds, known only now
 }
 
 // The subpart's history: every date ANY of its sections changed, from
@@ -478,6 +479,7 @@ async function ecfrLoadUnitVersions(unit) {
     }
     ecfrRenderTimeline();
     ecfrRefreshFrameSelects();
+    ecfrRefreshProvenance();       // the Local header names the amendment it holds, known only now
 }
 
 // The timeline for what's in focus — the subpart's history or the current
@@ -534,8 +536,14 @@ function ecfrRenderTimeline() {
     if (!ticks.length) { el.innerHTML = ""; return; }
     const showing = new Set(ecfrFrames.map(f => f.source));
     const holds = t => { const a = ecfrAmendmentFor(ticks, t.date); return a ? ` — holds the text as amended ${a.date}` : ""; };
+    const heldBy = {};          // amendment tick id -> ["Local", "Live"]
+    ticks.filter(t => t.kind !== "version").forEach(t => {
+        const a = ecfrAmendmentFor(ticks, t.date);
+        if (a) (heldBy[a.id] = heldBy[a.id] || []).push(t.kind === "local" ? "Local" : "Live");
+    });
     const tickHtml = ticks.map(t => {
         const label = t.kind === "local" ? "Local" : t.kind === "live" ? "Live" : t.date.slice(0, 7);
+        const tag = heldBy[t.id] ? `<span class="ecfr-tick-tag">= ${esc(heldBy[t.id].join(" & "))}</span>` : "";
         const title = (t.kind === "local" ? `Your local snapshot: the eCFR as it stood on ${t.date} (what \`ecfr_reader fetch\` downloaded)${holds(t)}`
             : t.kind === "live" ? `Live ecfr.gov: the text as it stands today, ${t.date}${holds(t)}`
             : `Amended ${t.date}${t.issue && t.issue !== t.date ? ` (in effect ${t.issue})` : ""}${
@@ -545,7 +553,7 @@ function ecfrRenderTimeline() {
         return `<button class="ecfr-tick ${t.kind} ${showing.has(t.id) ? "on" : ""} ${t.removed ? "removed" : ""}"
             data-id="${escAttr(t.id)}" data-date="${escAttr(t.date)}" title="${escAttr(title)}"
             onclick="ecfrOpenVersionFrame(${escJs(t.id)})">
-            <span class="ecfr-tick-mark"></span><span class="ecfr-tick-label">${esc(label)}</span></button>`;
+            <span class="ecfr-tick-mark"></span><span class="ecfr-tick-label">${esc(label)}</span>${tag}</button>`;
     }).join("");
     const n = v.versions.length;
     el.innerHTML = `<div class="ecfr-timeline-caption">
@@ -558,22 +566,20 @@ function ecfrRenderTimeline() {
     ecfrLayoutTimeline();
 }
 
-// Under the rail, an arrow from each snapshot back to the amendment whose
-// text it holds — the answer to "which of these dates is my Local copy?".
-// When Local and Live hold the same amendment there is one arrow for both.
+// On the rail line itself, a lead from each snapshot back to the amendment
+// whose text it holds — the answer to "which of these dates is my Local
+// copy?". Amber and dashed for Local, green and dotted for Live. When both
+// hold the same amendment the Local lead runs to Local and the Live lead
+// carries on from there, so the two never overlap.
 function ecfrTimelineLinksHtml(ticks) {
     const local = ticks.find(t => t.kind === "local"), live = ticks.find(t => t.kind === "live");
     const aLocal = local && ecfrAmendmentFor(ticks, local.date);
     const aLive = live && ecfrAmendmentFor(ticks, live.date);
-    const link = (cls, from, to, text) => `<div class="ecfr-tick-link ${cls}" data-from="${escAttr(from.id)}" data-to="${escAttr(to.id)}"
-        title="${escAttr(`${text}: the text as amended ${from.date}`)}"><span class="ecfr-tick-link-label">${esc(text)} = ${esc(from.date)}</span></div>`;
+    const lead = (cls, from, to, what, amend) => `<div class="ecfr-tick-link ${cls}" data-from="${escAttr(from.id)}" data-to="${escAttr(to.id)}"
+        title="${escAttr(`${what} holds the text as amended ${amend.date}`)}"></div>`;
     let html = "";
-    if (aLocal && aLive && aLocal.id === aLive.id) {
-        html += link("local", aLocal, live, "Local & Live");
-    } else {
-        if (aLocal) html += link("local", aLocal, local, "Local");
-        if (aLive) html += link("live", aLive, live, "Live");
-    }
+    if (aLocal) html += lead("local", aLocal, local, "Local", aLocal);
+    if (aLive) html += lead("live", aLocal && aLocal.id === aLive.id ? local : aLive, live, "Live", aLive);
     return html;
 }
 
@@ -620,9 +626,6 @@ function ecfrLayoutTimeline() {
     for (let i = xs.length - 2; i >= 0; i--) xs[i] = Math.min(xs[i], xs[i + 1] - ECFR_TICK_GAP);  // …and the rest keep their gap
     const shift = Math.max(0, pad - xs[0]);
     ticks.forEach((t, i) => { t.style.left = `${(xs[i] + shift).toFixed(1)}px`; });
-    // The rail is only as tall as what it draws: ticks, plus one or two arrows.
-    const links = rail.querySelectorAll(".ecfr-tick-link");
-    rail.style.height = links.length === 0 ? "40px" : rail.querySelector(".ecfr-tick-link.live") ? "58px" : "46px";
     const xOf = {};
     ticks.forEach((t, i) => { xOf[t.dataset.id] = xs[i] + shift; });
     rail.querySelectorAll(".ecfr-tick-link").forEach(l => {

@@ -37,10 +37,10 @@ frame whose text is fetched from ecfr.gov once and then kept, and the
 dashboard's snapshot tile explains that a snapshot is the eCFR as it stood
 on a day.
 
-Under the amendment rail, a dashed arrow runs from the Local tick (and
-from Live) back to the amendment whose text it holds, labelled "Local =
-2021-07-29" — one arrow for both when they hold the same amendment — and
-the Local frame's header says "text as amended <date>" too.
+On the amendment rail, a lead runs along the line from the Local tick
+back to the amendment whose text it holds (amber dashes; green dots for
+Live), the amendment's label says "= Local" or "= Local & Live", and the
+Local frame's header says "text as amended <date>" too.
 
 The Compare terminal follows the theme: paper-light in light mode, dark in dark mode.
 
