@@ -536,14 +536,20 @@ function ecfrRenderTimeline() {
     if (!ticks.length) { el.innerHTML = ""; return; }
     const showing = new Set(ecfrFrames.map(f => f.source));
     const holds = t => { const a = ecfrAmendmentFor(ticks, t.date); return a ? ` — holds the text as amended ${a.date}` : ""; };
-    const heldBy = {};          // amendment tick id -> ["Local", "Live"]
+    // The legend's extra entries: which amendment Local (and Live) hold,
+    // drawn as the leads on the rail are drawn.
+    const held = {};            // amendment date -> ["Local", "Live"]
     ticks.filter(t => t.kind !== "version").forEach(t => {
         const a = ecfrAmendmentFor(ticks, t.date);
-        if (a) (heldBy[a.id] = heldBy[a.id] || []).push(t.kind === "local" ? "Local" : "Live");
+        if (a) (held[a.date] = held[a.date] || []).push(t.kind === "local" ? "Local" : "Live");
     });
+    const leadLegend = Object.keys(held).map(date => {
+        const who = held[date];
+        const cls = who.length === 2 ? "lead-both" : who[0] === "Local" ? "lead-local" : "lead-live";
+        return `<i class="lg ${cls}"></i>${esc(who.join(" & "))} = as amended ${esc(date)}`;
+    }).join("");
     const tickHtml = ticks.map(t => {
         const label = t.kind === "local" ? "Local" : t.kind === "live" ? "Live" : t.date.slice(0, 7);
-        const tag = heldBy[t.id] ? `<span class="ecfr-tick-tag">= ${esc(heldBy[t.id].join(" & "))}</span>` : "";
         const title = (t.kind === "local" ? `Your local snapshot: the eCFR as it stood on ${t.date} (what \`ecfr_reader fetch\` downloaded)${holds(t)}`
             : t.kind === "live" ? `Live ecfr.gov: the text as it stands today, ${t.date}${holds(t)}`
             : `Amended ${t.date}${t.issue && t.issue !== t.date ? ` (in effect ${t.issue})` : ""}${
@@ -553,14 +559,14 @@ function ecfrRenderTimeline() {
         return `<button class="ecfr-tick ${t.kind} ${showing.has(t.id) ? "on" : ""} ${t.removed ? "removed" : ""}"
             data-id="${escAttr(t.id)}" data-date="${escAttr(t.date)}" title="${escAttr(title)}"
             onclick="ecfrOpenVersionFrame(${escJs(t.id)})">
-            <span class="ecfr-tick-mark"></span><span class="ecfr-tick-label">${esc(label)}</span>${tag}</button>`;
+            <span class="ecfr-tick-mark"></span><span class="ecfr-tick-label">${esc(label)}</span></button>`;
     }).join("");
     const n = v.versions.length;
     el.innerHTML = `<div class="ecfr-timeline-caption">
             <span class="ecfr-timeline-title">Amendment history${unit ? ` — Subpart ${esc(ecfrUnit.subpart)}, whole subpart` : ""}</span>
             <span class="ecfr-timeline-note">${n} amendment${n === 1 ? "" : "s"} on record since 2017${
                 unit ? " across its sections" : ""} · click a date to open that version in a new frame beside this one — fetched from ecfr.gov once, then kept; or pick it from a frame's source menu</span>
-            <span class="ecfr-timeline-legend"><i class="lg version"></i>amendment <i class="lg local"></i>Local <i class="lg live"></i>Live</span>
+            <span class="ecfr-timeline-legend"><i class="lg version"></i>amendment <i class="lg local"></i>Local <i class="lg live"></i>Live${leadLegend}</span>
         </div>
         <div class="ecfr-timeline-rail">${tickHtml}${ecfrTimelineLinksHtml(ticks)}</div>`;
     ecfrLayoutTimeline();

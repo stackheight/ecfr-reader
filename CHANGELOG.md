@@ -39,7 +39,7 @@ on a day.
 
 On the amendment rail, a lead runs along the line from the Local tick
 back to the amendment whose text it holds (amber dashes; green dots for
-Live), the amendment's label says "= Local" or "= Local & Live", and the
+Live), the rail's legend gains "Local & Live = as amended <date>", and the
 Local frame's header says "text as amended <date>" too.
 
 The Compare terminal follows the theme: paper-light in light mode, dark in dark mode.
