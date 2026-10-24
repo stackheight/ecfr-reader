@@ -833,37 +833,56 @@ body.ecfr-resizing { cursor: col-resize; user-select: none; }
 .cmp-flag:hover { background: var(--surface-alt); color: var(--text); }
 .cmp-flag.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 
-/* The terminal is dark in both themes — it is a terminal. */
+/* The terminal follows the theme: paper-light in light mode, dark in dark
+   mode. Its colours are its own tokens, not the page's — a diff needs a
+   red, a green, an amber and a cyan the rest of the UI doesn't have. */
+.cmp-terminal {
+    --term-bg: #fbfaf5; --term-fg: #2a3340; --term-border: #d9d5c8; --term-dim: #6b7482; --term-faint: #8a93a0;
+    --term-bar-bg: #efece3; --term-bar-border: #e1ddd1;
+    --term-green: #1f8a4c; --term-blue: #1f5fbf; --term-cyan: #0e7c9a; --term-amber: #9a6a00;
+    --term-red: #b42318; --term-red-bg: rgba(180, 35, 24, .08); --term-red-bg-strong: rgba(180, 35, 24, .15);
+    --term-green-bg: rgba(31, 138, 76, .10); --term-green-bg-strong: rgba(31, 138, 76, .17);
+    --term-fold-bg: #f1efe7; --term-fold-border: #cfcabd; --term-fold-border-hover: #a9a396;
+}
+:root[data-theme="dark"] .cmp-terminal {
+    --term-bg: #0e141b; --term-fg: #d7dde5; --term-border: #1f2733; --term-dim: #9aa6b4; --term-faint: #5c6b7c;
+    --term-bar-bg: #1a222c; --term-bar-border: #263040;
+    --term-green: #6fe39a; --term-blue: #8fb8ff; --term-cyan: #7fdcea; --term-amber: #e0c36b;
+    --term-red: #ff8078; --term-red-bg: rgba(255, 128, 120, .10); --term-red-bg-strong: rgba(255, 128, 120, .16);
+    --term-green-bg: rgba(111, 227, 154, .10); --term-green-bg-strong: rgba(111, 227, 154, .16);
+    --term-fold-bg: #16202a; --term-fold-border: #2b3746; --term-fold-border-hover: #4a5a6c;
+}
 .cmp-terminal { flex: 1; min-height: 240px; display: flex; flex-direction: column; border-radius: var(--radius);
-    overflow: hidden; box-shadow: var(--shadow-md); border: 1px solid #1f2733; background: #0e141b; color: #d7dde5;
-    font-family: var(--font-data); }
-.cmp-titlebar { display: flex; align-items: center; gap: 7px; padding: 8px 12px; background: #1a222c;
-    border-bottom: 1px solid #263040; font-size: var(--fs-caption); color: #9aa6b4; }
+    overflow: hidden; box-shadow: var(--shadow-md); border: 1px solid var(--term-border); background: var(--term-bg);
+    color: var(--term-fg); font-family: var(--font-data); }
+.cmp-titlebar { display: flex; align-items: center; gap: 7px; padding: 8px 12px; background: var(--term-bar-bg);
+    border-bottom: 1px solid var(--term-bar-border); font-size: var(--fs-caption); color: var(--term-dim); }
 .cmp-title { letter-spacing: .02em; }
 .cmp-out { flex: 1; min-height: 0; margin: 0; padding: 14px 16px 24px; overflow: auto; white-space: pre-wrap;
-    overflow-wrap: anywhere; font-size: var(--fs-data); line-height: 1.55; color: #d7dde5; }
-.cmp-ps1 { color: #5c6b7c; }
-.cmp-ps1-user { color: #6fe39a; font-weight: 700; }
-.cmp-ps1-cwd { color: #8fb8ff; font-weight: 700; }
-.cmp-ps1-time { color: #9aa6b4; }
-.cmp-prompt { color: #7fdcea; font-weight: 700; }
-.cmp-cursor::after { content: "▍"; color: #d7dde5; animation: cmp-blink 1s steps(1) infinite; }
+    overflow-wrap: anywhere; font-size: var(--fs-data); line-height: 1.55; color: var(--term-fg); }
+.cmp-ps1 { color: var(--term-faint); }
+.cmp-ps1-user { color: var(--term-green); font-weight: 700; }
+.cmp-ps1-cwd { color: var(--term-blue); font-weight: 700; }
+.cmp-ps1-time { color: var(--term-dim); }
+.cmp-prompt { color: var(--term-cyan); font-weight: 700; }
+.cmp-cursor::after { content: "▍"; color: var(--term-fg); animation: cmp-blink 1s steps(1) infinite; }
 @keyframes cmp-blink { 50% { opacity: 0; } }
 .cmp-line { white-space: pre-wrap; }
-.cmp-meta { color: #e0c36b; font-weight: 700; }
-.cmp-sec { color: #e0c36b; font-weight: 700; margin-top: 14px; }
+.cmp-out .cmp-muted { color: var(--term-dim); }
+.cmp-meta { color: var(--term-amber); font-weight: 700; }
+.cmp-sec { color: var(--term-amber); font-weight: 700; margin-top: 14px; }
 .cmp-sec + .cmp-sec { margin-top: 0; }
 .cmp-scope { margin-left: 0; }
-.cmp-hunk { color: #7fdcea; margin-top: 6px; }
-.cmp-same { color: #8e9aa8; }
-.cmp-del { color: #ff8078; background: rgba(255, 128, 120, .10); }
-.cmp-ins { color: #6fe39a; background: rgba(111, 227, 154, .10); }
-.cmp-word { color: #d7dde5; }
-.cmp-wdel { color: #ff8078; background: rgba(255, 128, 120, .16); text-decoration: line-through; }
-.cmp-wins { color: #6fe39a; background: rgba(111, 227, 154, .16); }
-.cmp-fold { color: #9aa6b4; background: #16202a; border: 1px dashed #2b3746; border-radius: 4px; padding: 2px 8px;
-    margin: 6px 0; cursor: pointer; }
-.cmp-fold:hover { color: #d7dde5; border-color: #4a5a6c; }
-.cmp-folded { border-left: 2px solid #2b3746; padding-left: 8px; margin: 2px 0 6px; }
-.cmp-err { color: #ff8078; }
+.cmp-hunk { color: var(--term-cyan); margin-top: 6px; }
+.cmp-same { color: var(--term-dim); }
+.cmp-del { color: var(--term-red); background: var(--term-red-bg); }
+.cmp-ins { color: var(--term-green); background: var(--term-green-bg); }
+.cmp-word { color: var(--term-fg); }
+.cmp-wdel { color: var(--term-red); background: var(--term-red-bg-strong); text-decoration: line-through; }
+.cmp-wins { color: var(--term-green); background: var(--term-green-bg-strong); }
+.cmp-fold { color: var(--term-dim); background: var(--term-fold-bg); border: 1px dashed var(--term-fold-border);
+    border-radius: 4px; padding: 2px 8px; margin: 6px 0; cursor: pointer; }
+.cmp-fold:hover { color: var(--term-fg); border-color: var(--term-fold-border-hover); }
+.cmp-folded { border-left: 2px solid var(--term-fold-border); padding-left: 8px; margin: 2px 0 6px; }
+.cmp-err { color: var(--term-red); }
 @media (max-width: 760px) { .cmp-select { min-width: 0; width: 100%; } }

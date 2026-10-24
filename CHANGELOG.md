@@ -37,6 +37,8 @@ frame whose text is fetched from ecfr.gov once and then kept, and the
 dashboard's snapshot tile explains that a snapshot is the eCFR as it stood
 on a day.
 
+The Compare terminal follows the theme: paper-light in light mode, dark in dark mode.
+
 Also: the Compare terminal stops typing its command one character at a
 time; the command and its output just appear. The macOS window buttons are
 gone from the title bar, and the `$` prompt is a two-line prompt in the
