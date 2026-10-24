@@ -1406,6 +1406,13 @@ function renderEcfrToc() {
     // 10,812 sections has no useful shape as a tree.
     const hidden = ecfrSearching() ? ` style="display:none;"` : "";
     const searchState = ecfrCaptureSearchInput();   // before the innerHTML below
+    // The tree is rebuilt on every navigation, which would put its scroll
+    // back at the top — and part 60 is a long way down. Remember where each
+    // scrolling band was and put it back once the new markup is in.
+    const scrolled = {};
+    el.querySelectorAll(".ecfr-toc-root, .ecfr-toc-favs, #ecfr-search-results").forEach(n => {
+        if (n.scrollTop) scrolled[n.className || n.id] = n.scrollTop;
+    });
     // The whole tree collapses, so a long favorites list can own the sidebar.
     el.innerHTML = ecfrSearchBarHtml()
         + `<div id="ecfr-search-results">${ecfrSearchResultsHtml()}</div>`
@@ -1418,6 +1425,10 @@ function renderEcfrToc() {
             ${rows}
         </details></div>`;
     ecfrRestoreSearchInput(searchState);
+    el.querySelectorAll(".ecfr-toc-root, .ecfr-toc-favs, #ecfr-search-results").forEach(n => {
+        const top = scrolled[n.className || n.id];
+        if (top) n.scrollTop = top;
+    });
 }
 
 // --- Search UI -------------------------------------------------------
