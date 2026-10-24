@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.2 — 2026-10-24
+
+The Compare terminal stops typing its command one character at a time;
+the command and its output just appear. The macOS window buttons are
+gone from the title bar, and the `$` prompt is now a two-line prompt in
+the style kitty users tend to run: `reader@ecfr`, the section as a path
+under `~/40cfr`, and the clock on the first line, a `❯` and the command
+on the second. An idle prompt waits under each result.
+
 ## 1.2.1 — 2026-10-24
 
 Compare is a tab of the reading pane — **Read | Compare** above the

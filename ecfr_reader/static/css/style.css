@@ -815,11 +815,13 @@ header h1, .brand {
     font-family: var(--font-data); }
 .cmp-titlebar { display: flex; align-items: center; gap: 7px; padding: 8px 12px; background: #1a222c;
     border-bottom: 1px solid #263040; font-size: var(--fs-caption); color: #9aa6b4; }
-.cmp-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
-.cmp-dot.r { background: #ff5f57; } .cmp-dot.y { background: #febc2e; } .cmp-dot.g { background: #28c840; }
-.cmp-title { margin-left: 8px; letter-spacing: .02em; }
+.cmp-title { letter-spacing: .02em; }
 .cmp-out { flex: 1; min-height: 0; margin: 0; padding: 14px 16px 24px; overflow: auto; white-space: pre-wrap;
     overflow-wrap: anywhere; font-size: var(--fs-data); line-height: 1.55; color: #d7dde5; }
+.cmp-ps1 { color: #5c6b7c; }
+.cmp-ps1-user { color: #6fe39a; font-weight: 700; }
+.cmp-ps1-cwd { color: #8fb8ff; font-weight: 700; }
+.cmp-ps1-time { color: #9aa6b4; }
 .cmp-prompt { color: #7fdcea; font-weight: 700; }
 .cmp-cursor::after { content: "▍"; color: #d7dde5; animation: cmp-blink 1s steps(1) infinite; }
 @keyframes cmp-blink { 50% { opacity: 0; } }

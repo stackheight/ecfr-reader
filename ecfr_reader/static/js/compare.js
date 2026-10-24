@@ -19,7 +19,6 @@ let cmpA = null;            // source ids: "local" | "live" | "version:<date>"
 let cmpB = null;
 let cmpRan = false;         // the hash carries A..B only once a comparison ran
 let cmpLocalCache = {};     // key -> the local section payload (/api/ecfr/section)
-let cmpTyping = null;
 let cmpRunSeq = 0;          // a run that another run overtook prints nothing
 let cmpWordDiff = (() => { try { return localStorage.getItem("ecfr.compare.wordDiff") === "1"; } catch (e) { return false; } })();
 let cmpCollapse = (() => { try { return localStorage.getItem("ecfr.diffCollapse") !== "0"; } catch (e) { return true; } })();
@@ -62,8 +61,7 @@ function cmpShellHtml() {
     return `<div class="cmp-screen">
         <div class="cmp-controls" id="cmp-controls"></div>
         <div class="cmp-terminal">
-            <div class="cmp-titlebar"><span class="cmp-dot r"></span><span class="cmp-dot y"></span><span class="cmp-dot g"></span>
-                <span class="cmp-title">ecfr-reader — compare</span></div>
+            <div class="cmp-titlebar"><span class="cmp-title">ecfr-reader — compare</span></div>
             <pre class="cmp-out" id="cmp-out"><span class="cmp-muted">Pick two versions, then press Compare.</span></pre>
         </div>
     </div>`;
@@ -208,13 +206,11 @@ async function cmpRun() {
     if (!out) return;
     const seq = ++cmpRunSeq;
     const cmd = `ecfr diff ${cmpKey} ${cmpSideArg(cmpA)}..${cmpSideArg(cmpB)}${cmpWordDiff ? " --word-diff" : ""}${cmpCollapse ? "" : " --no-collapse"}`;
-    out.innerHTML = `<span class="cmp-prompt">$ </span><span id="cmp-cmd"></span><span class="cmp-cursor" id="cmp-cursor"></span>\n`;
-    const typed = cmpTypeCommand(cmd);
+    out.innerHTML = cmpPromptHtml(cmd);
     let a, b;
     try {
         [a, b] = await Promise.all([cmpSideData(cmpA, cmpKey), cmpSideData(cmpB, cmpKey)]);
     } catch (err) {
-        await typed;
         if (seq !== cmpRunSeq) return;
         cmpPrint(out, [{ kind: "err", text: `error: ${err.message || "couldn't fetch a version"}` }, { kind: "meta", text: "exit 1" }]);
         return;
@@ -232,7 +228,6 @@ async function cmpRun() {
         : [{ kind: "muted", text: `${counts.changed} paragraph${counts.changed === 1 ? "" : "s"} changed, ${counts.added} added, ${counts.removed} removed${
                 counts.tables ? `, ${counts.tables} table${counts.tables === 1 ? "" : "s"} changed` : ""}` },
            { kind: "meta", text: "exit 0" }];
-    await typed;
     if (seq !== cmpRunSeq) return;
     // Identical texts print no body — like git, which prints nothing at all;
     // the header and the verdict are kept so the run still reads as a run.
@@ -241,22 +236,19 @@ async function cmpRun() {
     syncHash(true);
 }
 
-// The prompt line types itself — under a second even for a long command —
-// unless the user asked the OS for less motion, in which case it just is.
-function cmpTypeCommand(cmd) {
-    const el = document.getElementById("cmp-cmd");
-    if (!el) return Promise.resolve();
-    if (cmpTyping) { clearInterval(cmpTyping); cmpTyping = null; }
-    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) { el.textContent = cmd; return Promise.resolve(); }
-    const step = Math.max(8, Math.min(22, 700 / cmd.length));
-    return new Promise(resolve => {
-        let i = 0;
-        cmpTyping = setInterval(() => {
-            el.textContent = cmd.slice(0, ++i);
-            if (i >= cmd.length) { clearInterval(cmpTyping); cmpTyping = null; resolve(); }
-        }, step);
-    });
+// A two-line prompt in the style kitty users tend to run: who@where and
+// the "directory" (the section, as a path under Title 40) on the first
+// line, the command after a chevron on the second. The cursor at the end
+// blinks while the versions are fetched and goes away when the output lands.
+function cmpPromptHtml(cmd) {
+    const now = new Date();
+    const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const [part, ident] = (cmpKey || "").split(":");
+    const cwd = part ? `~/40cfr/${part}/${(ident || "").replace(/\s+/g, "-")}` : "~/40cfr";
+    return `<span class="cmp-ps1">╭─</span> <span class="cmp-ps1-user">reader@ecfr</span> `
+        + `<span class="cmp-ps1-cwd">${esc(cwd)}</span> <span class="cmp-ps1-time">${hhmm}</span>\n`
+        + `<span class="cmp-ps1">╰─</span><span class="cmp-prompt">❯</span> <span class="cmp-cmd">${esc(cmd || "")}</span>`
+        + `<span class="cmp-cursor" id="cmp-cursor"></span>\n`;
 }
 
 function cmpPrint(out, lines) {
@@ -271,7 +263,7 @@ function cmpPrint(out, lines) {
         }
         return cmpLineHtml(l);
     }).join("");
-    out.insertAdjacentHTML("beforeend", html);
+    out.insertAdjacentHTML("beforeend", html + cmpPromptHtml(""));
 }
 
 function cmpLineHtml(l) {
