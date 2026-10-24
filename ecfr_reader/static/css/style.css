@@ -19,7 +19,7 @@
     --accent-tint: #dcede7;
     --on-accent: #ffffff;     /* text painted on accent backgrounds */
     --link: #0f6478;          /* readable facility-name teal */
-    --thead-bg: #f2ecdc;      /* faint gold (v3) — the lone strong-amber band
+    --thead-bg: #f2ecdc;      /* faint gold (v3) — the lone strong-amber band */
     --thead-text: #71603b;
     --ok: #337a4d;     --ok-bg: #e2f0e0;     --ok-bd: #badcba;
     --warn: #9c6a1a;   --warn-bg: #f8ecd2;   --warn-bd: #ead5a0;
@@ -453,65 +453,12 @@ header h1, .brand {
    the escape hatch to the authoritative text. */
 .cite-ext { margin-left: 3px; font-size: .8em; text-decoration: none; }
 
-/* --- Version diff (local -> live) ---------------------------------- */
-/* Insertion green / deletion red, the convention everyone already reads.
-   Deletions keep the strike so the two are still distinguishable without
-   colour — the marks must survive a colourblind reader and a mono printout. */
-.ecfr-diff-ins { background: var(--ok-bg); color: var(--ok); text-decoration: none;
-    border-bottom: 2px solid var(--ok); border-radius: 2px; padding: 0 1px; }
-.ecfr-diff-del { background: var(--danger-bg); color: var(--danger);
-    text-decoration: line-through; opacity: .75; border-radius: 2px; padding: 0 1px; }
-/* The armed state comes from .ecfr-btn.on (accent fill). An accent-COLOURED
-   rule here would land on that accent fill and vanish — same specificity,
-   later in the file, so it would win. */
-.ecfr-diff-badge { display: inline-block; font-size: var(--fs-nano); font-weight: 700;
-    letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px;
-    border-radius: 999px; margin-bottom: 6px; }
-.ecfr-diff-badge.added { background: var(--ok-bg); color: var(--ok); }
-.ecfr-diff-badge.removed { background: var(--danger-bg); color: var(--danger); }
-.ecfr-diff-badge.changed { background: var(--accent-tint); color: var(--accent); }
-/* Tables are badged whole rather than cell-diffed — a half-aligned table is
-   unreadable, so the badge marks the boundary of what we're claiming. */
-.ecfr-diff-table { border-left: 3px solid var(--border); padding-left: 10px; margin: 14px 0; }
-.ecfr-diff-table.added { border-left-color: var(--ok); }
-.ecfr-diff-table.removed { border-left-color: var(--danger); }
-.ecfr-diff-table.changed { border-left-color: var(--accent); }
-.ecfr-diff-none { padding: 10px 12px; margin-bottom: 12px; border-radius: var(--r-sm);
-    background: var(--surface-alt); color: var(--text-2); font-size: var(--fs-small); }
-/* Nothing is annotatable here, so don't offer a text cursor that implies it. */
-.ecfr-frame-body.diffing { cursor: default; }
-/* Every change sits in a wrapper the step buttons walk; a left rule marks it
-   and the one stepped to lifts a little. */
-.ecfr-diff-change { border-left: 3px solid var(--accent-tint); padding-left: 10px; margin: 0 0 4px -13px; }
-.ecfr-diff-change.focus { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
-.ecfr-diff-summary { position: sticky; top: 0; z-index: 1; display: flex; align-items: center;
-    justify-content: space-between; gap: 10px; flex-wrap: wrap;
-    font-size: var(--fs-caption); font-weight: 700; color: var(--text-2);
-    text-transform: uppercase; letter-spacing: .04em; margin: -16px -22px 12px; padding: 8px 22px;
-    background: var(--surface); border-bottom: 1px solid var(--border); }
-/* Folded runs of unchanged paragraphs: a quiet strip that opens in place. */
-.ecfr-diff-fold { margin: 6px 0 10px; }
-.ecfr-diff-fold > summary { cursor: pointer; list-style: none; font-size: var(--fs-caption);
-    color: var(--text-muted); border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border);
-    padding: 4px 8px; text-align: center; }
-.ecfr-diff-fold > summary::-webkit-details-marker { display: none; }
-.ecfr-diff-fold > summary::before { content: "▸ "; }
-.ecfr-diff-fold[open] > summary::before { content: "▾ "; }
-.ecfr-diff-fold > summary:hover { color: var(--text); background: var(--surface-alt); }
-.ecfr-diff-controls { display: inline-flex; align-items: center; gap: 4px; flex: none;
-    text-transform: none; letter-spacing: 0; font-weight: 400; }
-.ecfr-diff-pos { font-size: var(--fs-nano); color: var(--text-muted); min-width: 3.5ch; text-align: center;
-    font-family: var(--font-data); white-space: nowrap; }
-.ecfr-diff-opt { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-nano);
-    color: var(--text-2); white-space: nowrap; cursor: pointer; margin-left: 6px; }
-.ecfr-diff-opt input { margin: 0; }
-
 /* --- The timeline: the section's amendment dates across the top --------- */
 .ecfr-timeline { flex: none; padding: 2px 10px 6px; border-bottom: 1px solid var(--border);
     overflow-x: auto; overflow-y: hidden; }
 .ecfr-timeline:empty { display: none; }
-.ecfr-timeline-rail { position: relative; height: 46px; margin: 2px 0 0; }
-.ecfr-timeline-rail::before { content: ""; position: absolute; left: 12px; right: 12px; top: 19px;
+.ecfr-timeline-rail { position: relative; height: 36px; margin: 2px 0 0; }
+.ecfr-timeline-rail::before { content: ""; position: absolute; left: 12px; right: 12px; top: 7px;
     border-top: 2px solid var(--border-strong); }
 .ecfr-tick { position: absolute; top: 0; transform: translateX(-50%); background: none; border: none;
     padding: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px;
@@ -522,11 +469,20 @@ header h1, .brand {
 .ecfr-tick.live .ecfr-tick-mark { border-color: var(--ok); background: var(--ok-bg); }
 .ecfr-tick.removed .ecfr-tick-mark { border-color: var(--danger); }
 .ecfr-tick:hover .ecfr-tick-label, .ecfr-tick:focus-visible .ecfr-tick-label { color: var(--text); text-decoration: underline; }
-.ecfr-tick.a .ecfr-tick-mark, .ecfr-tick.b .ecfr-tick-mark { background: var(--accent); border-color: var(--accent); }
-.ecfr-tick-role { height: 12px; line-height: 12px; font-size: var(--fs-nano); font-weight: 700; color: var(--accent); }
+.ecfr-tick.on .ecfr-tick-mark { background: var(--accent); border-color: var(--accent); }
+.ecfr-tick.on.live .ecfr-tick-mark { background: var(--ok); border-color: var(--ok); }
+.ecfr-tick.on.local .ecfr-tick-mark { background: var(--text-2); border-color: var(--text-2); }
+/* The caption that says what the rail IS, with its legend and the way to Compare. */
+.ecfr-timeline-caption { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 6px 2px 0; }
+.ecfr-timeline-title { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--text-2); }
+.ecfr-timeline-legend { font-size: var(--fs-nano); color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
+.ecfr-timeline-legend .lg { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--accent); margin-left: 6px; }
+.ecfr-timeline-legend .lg.local { border-color: var(--text-2); border-radius: 2px; }
+.ecfr-timeline-legend .lg.live { border-color: var(--ok); background: var(--ok-bg); }
+.ecfr-timeline-compare { margin-left: auto; font-size: var(--fs-caption); }
 .ecfr-tick-label { white-space: nowrap; line-height: 1.2; }
-.ecfr-timeline-note { display: block; font-size: var(--fs-nano); color: var(--text-muted); font-style: italic;
-    margin-top: 2px; }
+.ecfr-timeline-note { font-size: var(--fs-nano); color: var(--text-muted); font-style: italic; }
 
 .ecfr-toc-part-head { display: flex; align-items: baseline; gap: 6px; width: 100%;
     text-align: left; background: none; border: none; padding: 6px 10px; cursor: pointer;
@@ -824,3 +780,61 @@ header h1, .brand {
 
 .ws-glyph { width: 21px; height: 21px; margin-right: 9px;
     vertical-align: -3.5px; color: var(--accent); flex-shrink: 0; }
+
+/* --- Compare: the control bar and the mock terminal ---------------------- */
+.cmp-screen { display: flex; flex-direction: column; gap: 12px; height: 100%; min-height: 0; }
+.cmp-controls { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow-sm); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.cmp-row { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.cmp-field { display: flex; flex-direction: column; gap: 3px; position: relative; }
+.cmp-field > span { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--text-2); }
+.cmp-grow { flex: 1 1 260px; }
+.cmp-grow .ecfr-search-input { width: 100%; }
+.cmp-select { max-width: none; min-width: 16rem; font-size: var(--fs-small); padding: 5px 8px; }
+.cmp-hits { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; background: var(--surface);
+    border: 1px solid var(--border-strong); border-radius: var(--r-sm); box-shadow: var(--shadow-md);
+    display: flex; flex-direction: column; max-height: 40vh; overflow-y: auto; }
+.cmp-hits:empty { display: none; }
+.cmp-hit { text-align: left; background: none; border: none; border-bottom: 1px solid var(--border);
+    padding: 7px 10px; cursor: pointer; font-size: var(--fs-small); color: var(--text-2); }
+.cmp-hit:hover { background: var(--surface-alt); color: var(--text); }
+.cmp-hit b { color: var(--accent); margin-right: 6px; }
+.cmp-section-line { font-size: var(--fs-small); color: var(--text-2); gap: 14px; }
+.cmp-chosen b { color: var(--accent); }
+.cmp-muted { color: var(--text-muted); }
+.cmp-flags { display: inline-flex; gap: 6px; align-items: center; }
+.cmp-flag { font-family: var(--font-data); font-size: var(--fs-caption); padding: 5px 9px; border-radius: var(--r-sm);
+    border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); cursor: pointer; }
+.cmp-flag:hover { background: var(--surface-alt); color: var(--text); }
+.cmp-flag.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+/* The terminal is dark in both themes — it is a terminal. */
+.cmp-terminal { flex: 1; min-height: 0; display: flex; flex-direction: column; border-radius: var(--radius);
+    overflow: hidden; box-shadow: var(--shadow-md); border: 1px solid #1f2733; background: #0e141b; color: #d7dde5;
+    font-family: var(--font-data); }
+.cmp-titlebar { display: flex; align-items: center; gap: 7px; padding: 8px 12px; background: #1a222c;
+    border-bottom: 1px solid #263040; font-size: var(--fs-caption); color: #9aa6b4; }
+.cmp-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.cmp-dot.r { background: #ff5f57; } .cmp-dot.y { background: #febc2e; } .cmp-dot.g { background: #28c840; }
+.cmp-title { margin-left: 8px; letter-spacing: .02em; }
+.cmp-out { flex: 1; min-height: 240px; margin: 0; padding: 14px 16px 24px; overflow: auto; white-space: pre-wrap;
+    overflow-wrap: anywhere; font-size: var(--fs-data); line-height: 1.55; color: #d7dde5; }
+.cmp-prompt { color: #7fdcea; font-weight: 700; }
+.cmp-cursor::after { content: "▍"; color: #d7dde5; animation: cmp-blink 1s steps(1) infinite; }
+@keyframes cmp-blink { 50% { opacity: 0; } }
+.cmp-line { white-space: pre-wrap; }
+.cmp-meta { color: #e0c36b; font-weight: 700; }
+.cmp-hunk { color: #7fdcea; margin-top: 6px; }
+.cmp-same { color: #8e9aa8; }
+.cmp-del { color: #ff8078; background: rgba(255, 128, 120, .10); }
+.cmp-ins { color: #6fe39a; background: rgba(111, 227, 154, .10); }
+.cmp-word { color: #d7dde5; }
+.cmp-wdel { color: #ff8078; background: rgba(255, 128, 120, .16); text-decoration: line-through; }
+.cmp-wins { color: #6fe39a; background: rgba(111, 227, 154, .16); }
+.cmp-fold { color: #9aa6b4; background: #16202a; border: 1px dashed #2b3746; border-radius: 4px; padding: 2px 8px;
+    margin: 6px 0; cursor: pointer; }
+.cmp-fold:hover { color: #d7dde5; border-color: #4a5a6c; }
+.cmp-folded { border-left: 2px solid #2b3746; padding-left: 8px; margin: 2px 0 6px; }
+.cmp-err { color: #ff8078; }
+@media (max-width: 760px) { .cmp-select { min-width: 0; width: 100%; } }

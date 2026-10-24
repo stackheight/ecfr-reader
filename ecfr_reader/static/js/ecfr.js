@@ -389,11 +389,11 @@ async function ecfrEnsureVersion(date, key) {
 
 // --- The timeline ----------------------------------------------------
 // Across the top of the pane: every date ecfr.gov amended the open section,
-// plus Local (the snapshot) and Live (today) on the same rail. A click reads
-// what that amendment changed (B = the tick, A = the tick before it);
-// shift-click sets A, so any two can be paired.
+// plus Local (the snapshot) and Live (today) on the same rail. It is the
+// viewer's reading aid — a click opens that version in a frame beside what
+// you have; comparing two versions is the Compare tab's job (compare.js),
+// which the rail links to.
 let ecfrVersions = null;          // {key, versions:[{date,…}], latest, local_snapshot_date} | {key, error}
-let ecfrDiffSel = { a: null, b: null };   // source ids ("local", "live", "version:<date>") or null
 
 async function ecfrLoadVersions(key) {
     ecfrVersions = { key, loading: true };
@@ -433,24 +433,45 @@ function ecfrRenderTimeline() {
     if (v.error) { el.innerHTML = `<span class="ecfr-timeline-note">Version history unavailable: ${esc(v.error)}</span>`; return; }
     const ticks = ecfrTimelineTicks();
     if (!ticks.length) { el.innerHTML = ""; return; }
+    const showing = new Set(ecfrFrames.map(f => f.source));
     const tickHtml = ticks.map(t => {
-        const role = ecfrDiffSel.a === t.id ? "a" : ecfrDiffSel.b === t.id ? "b" : "";
         const label = t.kind === "local" ? "Local" : t.kind === "live" ? "Live" : t.date.slice(0, 7);
-        const title = t.kind === "local" ? `Your local snapshot (${t.date})`
+        const title = (t.kind === "local" ? `Your local snapshot (${t.date})`
             : t.kind === "live" ? `Live ecfr.gov (today, ${t.date})`
             : `Amended ${t.date}${t.issue && t.issue !== t.date ? ` (in effect ${t.issue})` : ""}${
-                t.removed ? " — removed" : t.substantive ? " — substantive" : ""}`;
-        return `<button class="ecfr-tick ${t.kind} ${role} ${t.removed ? "removed" : ""}"
+                t.removed ? " — removed" : t.substantive ? " — substantive" : ""}`) + " — click to open this version in a frame";
+        return `<button class="ecfr-tick ${t.kind} ${showing.has(t.id) ? "on" : ""} ${t.removed ? "removed" : ""}"
             data-date="${escAttr(t.date)}" title="${escAttr(title)}"
-            onclick="ecfrTimelineClick(event, ${escJs(t.id)})">${
-            role ? `<span class="ecfr-tick-role">${role.toUpperCase()}</span>` : `<span class="ecfr-tick-role"></span>`}
+            onclick="ecfrOpenVersionFrame(${escJs(t.id)})">
             <span class="ecfr-tick-mark"></span><span class="ecfr-tick-label">${esc(label)}</span></button>`;
     }).join("");
     const n = v.versions.length;
-    el.innerHTML = `<div class="ecfr-timeline-rail">${tickHtml}</div>
-        <div class="ecfr-timeline-note">${n} amendment${n === 1 ? "" : "s"} since ecfr.gov's history begins ·
-        click a date to read what it changed (against the version before it) · shift-click to set the A side</div>`;
+    el.innerHTML = `<div class="ecfr-timeline-caption">
+            <span class="ecfr-timeline-title">Amendment history</span>
+            <span class="ecfr-timeline-note">${n} amendment${n === 1 ? "" : "s"} on record since 2017 · click a date to open that version beside this one</span>
+            <span class="ecfr-timeline-legend"><i class="lg version"></i>amendment <i class="lg local"></i>Local <i class="lg live"></i>Live</span>
+            <button class="rerun-link ecfr-timeline-compare" onclick="openCompareFor(${escJs(ecfrCurrentKey)})"
+                title="Pick two versions of this section and read the difference">Compare versions →</button>
+        </div>
+        <div class="ecfr-timeline-rail">${tickHtml}</div>`;
     ecfrLayoutTimeline();
+}
+
+// A tick opens that version in a reading frame beside the ones you have
+// (or swaps the last frame to it when the row is full). A version already
+// on screen just gets scrolled to.
+function ecfrOpenVersionFrame(id) {
+    const source = id.startsWith("version:") ? ecfrVersionSource(id.slice(8)) : id;
+    const have = ecfrFrames.findIndex(f => f.source === source);
+    if (have >= 0) {
+        const fr = document.querySelector(`#ecfr-pane .ecfr-frame[data-frame="${have}"]`);
+        if (fr) fr.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+        return;
+    }
+    if (ecfrFrames.length >= ECFR_MAX_FRAMES) ecfrFrames[ecfrFrames.length - 1] = { source };
+    else ecfrFrames.push({ source });
+    renderEcfrReader();
+    ecfrLoadFrames();
 }
 
 // Ticks sit where their dates fall along the rail, but never closer than a
@@ -484,35 +505,6 @@ function ecfrLayoutTimeline() {
 window.addEventListener("resize", () => { clearTimeout(window._ecfrTlResize);
     window._ecfrTlResize = setTimeout(ecfrLayoutTimeline, 120); });
 
-// The id of the tick before `id` on the rail, or null (the first one).
-function ecfrTickBefore(id) {
-    const ticks = ecfrTimelineTicks();
-    const i = ticks.findIndex(t => t.id === id);
-    return i > 0 ? ticks[i - 1].id : null;
-}
-
-function ecfrTimelineClick(event, id) {
-    if (event && event.shiftKey) {
-        ecfrApplyDiffPair(id, ecfrDiffSel.b || id === "live" ? ecfrDiffSel.b : "live");
-        return;
-    }
-    ecfrApplyDiffPair(ecfrTickBefore(id), id);
-}
-
-// Show B (and A, when there is one) as the frames, with the changes marked
-// up in B. A null A shows B alone: the earliest version has nothing before it.
-async function ecfrApplyDiffPair(a, b) {
-    if (!b) return;
-    const frameFor = id => ({ source: id.startsWith("version:") ? ecfrVersionSource(id.slice(8)) : id });
-    ecfrDiffSel = { a: a || null, b };
-    ecfrFrames = a && a !== b ? [frameFor(a), frameFor(b)] : [frameFor(b)];
-    ecfrDiffMode = !!(a && a !== b);
-    renderEcfrReader();
-    ecfrRenderTimeline();
-    syncHash(true);
-    await ecfrLoadFrames();
-}
-
 // One entry per open frame. The layout persists across section navigation.
 // More than two is the point: three frames sit at ~2.5 visible and the row
 // scrolls horizontally, so versions can be lined up side by side.
@@ -523,84 +515,6 @@ let ecfrFrames = [{ source: "local" }];
 // tells our dragover handler to ignore drags that aren't ours (a text
 // selection dragged across the pane fires the same events).
 let ecfrDragFrame = null;
-
-// --- Diff mode --------------------------------------------------------
-// Renders local→live changes INTO the live frame. Only meaningful when a
-// loaded local frame and a loaded live frame are showing the same section,
-// so it silently switches itself off whenever that stops being true rather
-// than leaving a stale toggle armed.
-let ecfrDiffMode = false;
-
-// The [localIndex, liveIndex] pair to diff, or null when the reader isn't in
-// a state where a diff means anything.
-function ecfrDiffPair() {
-    if (!ecfrCurrentKey) return null;
-    const key = ecfrCurrentKey;
-    const ready = f => f && !f.loading && ECFR_SOURCES[f.source] && ECFR_SOURCES[f.source].data(key);
-    if (ecfrDiffSel.a && ecfrDiffSel.b) {
-        const ia = ecfrFrames.findIndex(f => f.source === ecfrDiffSel.a);
-        const ib = ecfrFrames.findIndex(f => f.source === ecfrDiffSel.b);
-        if (ia >= 0 && ib >= 0 && ia !== ib) {
-            return (ready(ecfrFrames[ia]) && ready(ecfrFrames[ib])) ? [ia, ib] : null;
-        }
-    }
-    // `persists`, not `editable`: since round 4 a live frame is editable too,
-    // so `!editable` matches nothing and the diff would silently never offer
-    // itself. What actually distinguishes the two sides is which one we store.
-    const localIdx = ecfrFrames.findIndex(f =>
-        ECFR_SOURCES[f.source].persists !== false && !f.loading && ECFR_SOURCES[f.source].data(key));
-    const liveIdx = ecfrFrames.findIndex(f =>
-        ECFR_SOURCES[f.source].persists === false && !f.loading && ECFR_SOURCES[f.source].data(key));
-    return (localIdx >= 0 && liveIdx >= 0) ? [localIdx, liveIdx] : null;
-}
-
-// Collapse unchanged paragraphs in a diff (the checkbox on the diff frame).
-// Remembered per browser so the choice holds across sections and reloads.
-let ecfrDiffCollapse = (() => { try { return localStorage.getItem("ecfr.diffCollapse") !== "0"; } catch (e) { return true; } })();
-let ecfrDiffPos = {};             // frame index -> the change currently stepped to
-
-function ecfrSetDiffCollapse(on) {
-    ecfrDiffCollapse = !!on;
-    try { localStorage.setItem("ecfr.diffCollapse", on ? "1" : "0"); } catch (e) { /* private mode */ }
-    ecfrDiffPos = {};
-    renderEcfrPane();             // the diff frame re-renders from the cached blocks; nothing is refetched
-}
-
-function ecfrDiffStep(index, delta) {
-    const body = document.querySelector(`#ecfr-pane .ecfr-frame[data-frame="${index}"] .ecfr-frame-body`);
-    if (!body) return;
-    const changes = [...body.querySelectorAll(".ecfr-diff-change")];
-    if (!changes.length) return;
-    const cur = ecfrDiffPos[index];
-    let next = cur == null ? (delta > 0 ? 0 : changes.length - 1) : cur + delta;
-    next = (next + changes.length) % changes.length;
-    ecfrDiffPos[index] = next;
-    changes.forEach(c => c.classList.remove("focus"));
-    const target = changes[next];
-    const fold = target.closest("details.ecfr-diff-fold");
-    if (fold) fold.open = true;
-    target.classList.add("focus");
-    target.scrollIntoView({ block: "center", behavior: "smooth" });
-    const pos = document.getElementById(`ecfr-diff-pos-${index}`);
-    if (pos) pos.textContent = `${next + 1} / ${changes.length}`;
-}
-
-function ecfrCanDiff() {
-    return ecfrDiffPair() !== null;
-}
-
-// The timeline's pair is chosen and both frames exist, but one is still
-// loading its text — the diff is coming, not impossible.
-function ecfrDiffPending() {
-    if (!ecfrDiffSel.a || !ecfrDiffSel.b) return false;
-    const has = id => ecfrFrames.some(f => f.source === id);
-    return has(ecfrDiffSel.a) && has(ecfrDiffSel.b);
-}
-
-function ecfrToggleDiff() {
-    ecfrDiffMode = !ecfrDiffMode;
-    renderEcfrPane();
-}
 
 async function goEcfr() {
     showScreen("ecfr");
@@ -1163,16 +1077,11 @@ async function ecfrLoadFrames() {
             `#ecfr-pane .ecfr-section[data-section-key="${CSS.escape(key)}"]`)
             .forEach(art => ecfrFillSection(art, key, Number(art.dataset.frame)));
     }));
-    // The live text landing is what makes a diff possible, so the nav has to
-    // be asked again now — it was rendered before this fetch returned, when
-    // ecfrCanDiff() was still false.
+    // The nav and the headers name versions that only exist once the text
+    // has arrived, so they are asked again now.
     ecfrRenderPaneNav();
     ecfrRefreshProvenance();
-    // An armed diff whose pair has just become readable: paint it now (the
-    // frame bodies were filled with plain text as they arrived).
-    if (ecfrDiffMode && ecfrCanDiff() && !document.querySelector("#ecfr-pane .ecfr-frame-body.diffing")) {
-        renderEcfrPane();
-    }
+    ecfrRenderTimeline();          // a version just opened is drawn filled on the rail
 }
 
 // A frame header must name the exact version on screen, never just the source
@@ -1185,7 +1094,7 @@ function ecfrRefreshProvenance() {
         const src = ECFR_SOURCES[f.source];
         const el = document.querySelector(
             `#ecfr-pane .ecfr-frame[data-frame="${i}"] .ecfr-frame-provenance`);
-        if (!el || el.dataset.diff === "1") return;   // diff frames name both sides
+        if (!el) return;
         el.textContent = src.label(src.data(ecfrCurrentKey));
     });
 }
@@ -1682,11 +1591,8 @@ function ecfrUnitNeighbours() {
     return { prev: ecfrUnitSections[i - 1] || null, next: ecfrUnitSections[i + 1] || null };
 }
 
-// The pane's nav renders on its own, because two of its controls depend on
-// things that arrive LATER than the pane does. "Show changes" needs the live
-// text, which is still in flight when ecfrToggleCompare() paints the frame —
-// so rendered once with the pane it would never appear at all. Prev/next
-// likewise change as you scroll.
+// The pane's nav renders on its own, because its prev/next controls change
+// as you scroll — later than the pane itself is painted.
 function ecfrRenderPaneNav() {
     const el = document.getElementById("ecfr-pane-nav");
     if (!el) return;
@@ -1700,10 +1606,6 @@ function ecfrRenderPaneNav() {
             title="${next ? escAttr(next.heading || next.section_key) : ""}"
             onclick="${next ? `openEcfrSection(${escJs(next.section_key)})` : ""}">
             ${next ? esc(ecfrShortLabel(next)) : "End of this subpart"} ›</button>
-        ${ecfrCanDiff() ? `<button class="ecfr-btn ecfr-diff-toggle ${
-            ecfrDiffMode ? "on" : ""}"
-            title="Mark up what changed between the local snapshot and the live text"
-            onclick="ecfrToggleDiff()">☰ ${ecfrDiffMode ? "Hide changes" : "Show changes"}</button>` : ""}
         <button class="ecfr-btn ecfr-add-frame"
             ${ecfrFrames.length >= ECFR_MAX_FRAMES ? "disabled" : ""}
             title="Open another frame to compare versions side by side"
@@ -1740,28 +1642,11 @@ function renderEcfrPane() {
     // the observer's first callback sees the true position.
     if (ecfrCurrentKey) ecfrScrollToSection(ecfrCurrentKey);
 
-    // Eligibility can vanish under an armed toggle — close the live frame,
-    // navigate to a section with no upstream text — so re-check every render
-    // rather than trusting the flag.
-    // …unless the pair is simply still arriving: the timeline arms the diff
-    // before the dated text lands, and ecfrLoadFrames re-renders when it has.
-    if (ecfrDiffMode && !ecfrCanDiff() && !ecfrDiffPending()) ecfrDiffMode = false;
-
     ecfrRenderPaneNav();
     ecfrRenderToolbar();
-    if (ecfrDiffMode) {
-        // Marks anchor to character offsets into a section's text. Diff
-        // markup inserts and removes words wholesale, so every saved offset
-        // is meaningless against it — painting them would put highlights on
-        // the wrong words. Detach entirely rather than paint a lie.
-        ecfrDetachAnnotator();
-        // Blocks still need filling; the observer does that either way.
-        ecfrObserveSections();
-    } else {
-        // Rebinds section by section as they come into view: the observer
-        // fills the text and attaches an annotator to each container.
-        ecfrAttachAnnotator();
-    }
+    // Rebinds section by section as they come into view: the observer
+    // fills the text and attaches an annotator to each container.
+    ecfrAttachAnnotator();
     ecfrSyncAnnotatingAffordance();
 }
 
@@ -1773,7 +1658,7 @@ function renderEcfrPane() {
 // (ecfrObserveSections fills them). Most units are tiny, but part 52's
 // subpart F is 57 sections / 8,894 blocks, and a live frame would otherwise
 // fetch every section of a subpart from ecfr.gov the moment you opened it.
-function ecfrSectionHtml(sec, frameIndex, src, isDiffFrame, pair) {
+function ecfrSectionHtml(sec, frameIndex, src) {
     const key = sec.section_key;
     const data = src.data(key);
     const isCurrent = key === ecfrCurrentKey;
@@ -1796,11 +1681,6 @@ function ecfrSectionHtml(sec, frameIndex, src, isDiffFrame, pair) {
         // sections resolve.
         inner = `<p class="hint ecfr-section-pending">Loading${
             src.persists === false ? " from ecfr.gov" : ""}…</p>`;
-    } else if (isDiffFrame) {
-        const localSrc = ECFR_SOURCES[ecfrFrames[pair[0]].source];
-        const localData = localSrc.data(key);
-        inner = ecfrDiffHtml((localData && localData.blocks) || [], data.blocks || [],
-                             { collapse: ecfrDiffCollapse, frameIndex });
     } else {
         inner = "";       // filled by the observer; see ecfrFillSection
     }
@@ -1815,7 +1695,7 @@ function ecfrSectionHtml(sec, frameIndex, src, isDiffFrame, pair) {
         <div class="ecfr-meta">${metaBits.join("")}</div>
         <div class="ecfr-blocks" data-frame="${frameIndex}"
              data-section-key="${escAttr(key)}"
-             data-filled="${isDiffFrame ? "1" : "0"}">${inner}</div>
+             data-filled="0">${inner}</div>
     </article>`;
 }
 
@@ -1826,12 +1706,6 @@ function ecfrFrameHtml(frame, index) {
     const key = ecfrCurrentKey;
     const data = src.data(key);
     const s = ecfrSection || {};
-
-    // In diff mode the live frame shows the changes instead of the live text
-    // — the whole point is to read one marked-up copy, not to spot the
-    // difference between two walls of prose yourself.
-    const pair = ecfrDiffMode ? ecfrDiffPair() : null;
-    const isDiffFrame = !!pair && pair[1] === index;
 
     // WHICH SECTIONS THIS FRAME SHOWS.
     //
@@ -1860,7 +1734,7 @@ function ecfrFrameHtml(frame, index) {
     // So: one container per section, offsets unchanged, no migration.
     const bodyHtml = frame.error
         ? `<p class="hint">${esc(frame.error)}</p>`
-        : sections.map(sec => ecfrSectionHtml(sec, index, src, isDiffFrame, pair)).join("");
+        : sections.map(sec => ecfrSectionHtml(sec, index, src)).join("");
 
     const options = Object.keys(ECFR_SOURCES).map(id =>
         `<option value="${escAttr(id)}" ${id === frame.source ? "selected" : ""}>
@@ -1878,16 +1752,15 @@ function ecfrFrameHtml(frame, index) {
     // the two bodies started at different heights and the text no longer lined
     // up — which is the entire point of reading them side by side. The full
     // sentence lives in the tooltip.
-    const scratchWarn = (src.editable && src.persists === false && !isDiffFrame)
+    const scratchWarn = (src.editable && src.persists === false)
         ? `<span class="ecfr-scratch-warn"
              title="Marks here are scratch: they are never saved and are gone when you navigate away. Live text isn't stored and can change upstream at any time, so a saved mark's position couldn't be trusted later — mark the local snapshot to keep it."
              >⚠ Scratch</span>`
         : "";
 
-    // One frame gets Compare (the quick "show me the other version" path);
-    // any frame in a row of several gets a close button instead.
-    const action = ecfrFrames.length === 1
-        ? `<button class="ecfr-btn" onclick="ecfrToggleCompare()" title="Open a second frame to compare versions">Compare</button>`
+    // A frame in a row of several gets a close button; the only frame has
+    // nothing to close ("+ Add frame" in the nav opens the next one).
+    const action = ecfrFrames.length === 1 ? ""
         : `<button class="ecfr-annot-x" title="Close this frame" onclick="ecfrCloseFrame(${index})">✕</button>`;
 
 
@@ -1906,15 +1779,12 @@ function ecfrFrameHtml(frame, index) {
                 onchange="ecfrSetFrameSource(${index}, this.value)">
                 ${options}
             </select>
-            <span class="ecfr-frame-provenance" data-diff="${isDiffFrame ? "1" : "0"}">${esc(isDiffFrame
-                ? `Changes — ${ECFR_SOURCES[ecfrFrames[pair[0]].source].label(
-                      ECFR_SOURCES[ecfrFrames[pair[0]].source].data(key))} → ${src.label(data)}`
-                : src.label(data))}</span>
+            <span class="ecfr-frame-provenance">${esc(src.label(data))}</span>
             ${scratchWarn}
             ${action}
         </div>
         ${ecfrUnitLabel(unitFrame)}
-        <div class="ecfr-frame-body ${isDiffFrame ? "diffing" : ""}"
+        <div class="ecfr-frame-body"
              onscroll="${unitFrame ? `ecfrOnFrameScroll(${index})` : ""}">
             ${bodyHtml}
         </div>
@@ -2096,11 +1966,6 @@ async function ecfrSetFrameSource(index, source) {
     await ecfrLoadFrames();
 }
 
-function ecfrToggleCompare() {
-    if (ecfrFrames.length > 1) { ecfrCloseFrame(1); return; }
-    ecfrAddFrame();
-}
-
 // Open another frame, defaulting to the opposite source of the last one —
 // comparing a version against itself is never what's wanted.
 function ecfrAddFrame() {
@@ -2188,11 +2053,6 @@ function ecfrIsPaintTool(mode) {
 function ecfrRenderToolbar() {
     const el = document.getElementById("ecfr-toolbar");
     if (!el) return;
-    if (ecfrDiffMode) {
-        el.innerHTML = `<span class="hint">Annotation tools are paused while changes are
-            shown — a mark's position means nothing against marked-up text.</span>`;
-        return;
-    }
     if (!ecfrHasAnnotatableFrame()) {
         el.innerHTML = `<span class="hint">Nothing on screen can be marked up.</span>`;
         return;

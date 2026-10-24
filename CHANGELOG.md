@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.2.0 — 2026-10-23
+
+**The Compare workspace.** Comparing versions moves out of the reader
+into its own tab. Pick a section (search, a starred section, or the one
+open in the viewer), pick **A (before)** and **B (after)** from every
+version on record — the amendment dates, your Local snapshot, Live
+ecfr.gov — and press Compare. The result prints into a mock terminal as
+a git-style unified diff: `---`/`+++` headers naming the two versions, a
+`@@ (e) @@` hunk header naming the paragraph each change is in, `-` and
+`+` lines, runs of unchanged paragraphs folded to `@@ 19 unchanged
+paragraphs @@` (click to show). `--word-diff` prints each changed
+paragraph once with the removed words `[-marked-]` and the added words
+`{+marked+}`, git's convention; `--collapse` turns the folding off. The
+prompt line types itself (not when the OS asks for reduced motion). A
+comparison is a link: `#compare/<key>/<A>..<B>`.
+
+**The timeline, labelled.** The rail across the top of a section is now
+captioned ("Amendment history · 3 amendments on record since 2017"), has
+a legend, and says what a click does: it opens that version in a reading
+frame beside the ones you have. A version on screen is drawn filled. The
+"Compare versions →" link at its right hands the section to Compare.
+
+Gone from the reader: the "Show changes" and "Compare" buttons, the
+in-frame diff with its sticky summary strip, shift-click on the rail, and
+the `#ecfr/read/<key>/diff/<A>..<B>` link form (open the same pair in
+Compare instead). Annotation tools no longer pause — the reader only ever
+shows real text now.
+
+Also: an unclosed comment in the stylesheet had been swallowing the light
+theme's table-header, ok, warning and star colour tokens.
+
 ## 1.1.1 — 2026-10-23
 
 The favorites are a pinned, collapsible band under the search box: the

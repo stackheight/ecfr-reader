@@ -2,7 +2,7 @@
 // ecfr-reader — the page's shared globals, in one classic script loaded
 // before ecfr-annotator.js, ecfr-diff.js and ecfr.js: escaping helpers,
 // toasts, the single-screen "router" (the hash is #ecfr or
-// #ecfr/read/<section key>), and the light / dark theme.
+// #ecfr/read/<section key>, or #compare/<key>/<A>..<B>), and the light / dark theme.
 // =====================================================================
 
 const API_BASE = "";
@@ -66,13 +66,15 @@ function wsGlyph(key) {
 let _restoringHash = false;
 
 function _stateHash() {
-    if (!ecfrCurrentKey) return "#ecfr";
-    let h = `#ecfr/read/${encodeURIComponent(ecfrCurrentKey)}`;
-    // a comparison is a link: #ecfr/read/<key>/diff/<A>..<B>
-    if (typeof ecfrDiffMode !== "undefined" && ecfrDiffMode && ecfrDiffSel.a && ecfrDiffSel.b) {
-        h += `/diff/${encodeURIComponent(ecfrDiffSel.a)}..${encodeURIComponent(ecfrDiffSel.b)}`;
+    if (appScreen === "compare") {
+        // a comparison is a link: #compare/<key>/<A>..<B>
+        if (!cmpKey) return "#compare";
+        let h = `#compare/${encodeURIComponent(cmpKey)}`;
+        if (cmpRan && cmpA && cmpB) h += `/${encodeURIComponent(cmpA)}..${encodeURIComponent(cmpB)}`;
+        return h;
     }
-    return h;
+    if (!ecfrCurrentKey) return "#ecfr";
+    return `#ecfr/read/${encodeURIComponent(ecfrCurrentKey)}`;
 }
 
 function syncHash(push) {
@@ -83,16 +85,19 @@ function syncHash(push) {
     else history.replaceState(null, "", h);
 }
 
-// The reader is the only screen: showScreen keeps the workspace visible
-// and writes the hash (a push when the screen "changed", a replace
+// Two screens — the reader ("ecfr") and Compare — one visible at a time.
+// showScreen writes the hash (a push when the screen "changed", a replace
 // otherwise — the convention ecfr.js was written against). The write is
 // deferred a microtask: callers set their state (the dashboard clears
 // ecfrCurrentKey) right AFTER calling this, and the hash must reflect it.
 function showScreen(screen) {
     const changed = appScreen !== screen;
     appScreen = screen;
-    const ws = document.getElementById("ecfr-workspace");
-    if (ws) ws.style.display = "block";
+    for (const [id, name] of [["ecfr-workspace", "ecfr"], ["compare-workspace", "compare"]]) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = name === screen ? "block" : "none";
+    }
+    document.querySelectorAll(".ws-btn").forEach(b => b.classList.toggle("active", b.dataset.ws === screen));
     queueMicrotask(() => syncHash(changed));
 }
 
@@ -107,20 +112,16 @@ async function restoreFromHash() {
     _restoringHash = true;
     try {
         const parts = location.hash.replace(/^#/, "").split("/");
-        if (parts[0] === "ecfr" && parts[1] === "read" && parts[2]) {
-            const diff = parts[3] === "diff" && parts[4] && parts[4].includes("..");
-            if (!diff && typeof ecfrDiffSel !== "undefined") {
-                // a plain section link means "no comparison": drop an armed one,
-                // or syncHash would write the old pair straight back into the hash
-                ecfrDiffMode = false;
-                ecfrDiffSel = { a: null, b: null };
-            }
+        if (parts[0] === "compare") {
+            showScreen("compare");
+            const key = parts[1] ? decodeURIComponent(parts[1]) : null;
+            const pair = parts[2] && parts[2].includes("..") ? parts[2].split("..").map(decodeURIComponent) : [null, null];
+            await renderCompare(key, pair[0], pair[1]);
+        } else if (parts[0] === "ecfr" && parts[1] === "read" && parts[2]) {
+            showScreen("ecfr");
             await openEcfrSection(decodeURIComponent(parts[2]));
-            if (diff) {
-                const [sa, sb] = parts[4].split("..").map(decodeURIComponent);
-                await ecfrApplyDiffPair(sa, sb);
-            }
         } else {
+            showScreen("ecfr");
             await renderEcfrDashboard();
         }
     } catch (err) {

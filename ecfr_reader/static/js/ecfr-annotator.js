@@ -311,7 +311,7 @@ function ecfrDetachSectionAnnotator(frameIndex, sectionKey) {
 // sections, and instantiating all of them (times every frame) is not a thing
 // to do to a browser.
 async function ecfrAttachSectionAnnotator(frameIndex, sectionKey) {
-    if (!window.RecogitoJS || ecfrDiffMode) return;
+    if (!window.RecogitoJS) return;
     const id = ecfrAnnKey(frameIndex, sectionKey);
     if (ecfrAnnotators.has(id)) return;                  // already bound
 

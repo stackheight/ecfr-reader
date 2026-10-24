@@ -265,102 +265,70 @@ function ecfrDiffPairGap(gapA, gapB, out) {
     while (flushed < gapA.length) emitDel(gapA[flushed++]);
 }
 
-// --- Render -----------------------------------------------------------
-
-// Text in, safe HTML out. esc() FIRST, then the markup — the other order
-// would eat our own tags and let corpus text write its own.
-function ecfrDiffOpsHtml(ops) {
-    return ops.map(o => {
-        const t = esc(o.text);
-        if (o.op === "-") return `<del class="ecfr-diff-del">${t}</del>`;
-        if (o.op === "+") return `<ins class="ecfr-diff-ins">${t}</ins>`;
-        return t;
-    }).join("");
-}
-
-function ecfrDiffBadgeHtml(state) {
-    const label = { added: "Table added", removed: "Table removed", changed: "Table changed" }[state]
-        || "Table changed";
-    return `<div class="ecfr-diff-badge ${esc(state)}">${esc(label)}</div>`;
-}
-
-// Unchanged paragraphs kept on each side of a change when folding — the
-// idea of git's context lines, in paragraphs, which are the CFR's unit.
+// --- Lines ------------------------------------------------------------
+// The diff as a list of terminal lines for compare.js to print:
+//   {kind: "hunk", text}            @@ (e) @@ — names the paragraph a change is in
+//   {kind: "same" | "del" | "ins", text}
+//   {kind: "word", ops}             one paragraph with [-removed-] / {+added+} words
+//   {kind: "fold", n, lines}        a run of unchanged paragraphs, folded
+// opts.wordDiff: a changed paragraph is one "word" line instead of a "del"
+// then an "ins". opts.collapse: unchanged runs beyond one paragraph of
+// context on each side of a change fold. Returns {lines, counts}.
 const ECFR_DIFF_CONTEXT = 1;
 
-// The whole diff for one section, as the body of the B frame. With
-// opts.collapse, runs of unchanged paragraphs beyond the context fold to a
-// one-line strip; every change sits in a .ecfr-diff-change wrapper the step
-// buttons walk, and a summary line counts them.
-function ecfrDiffHtml(localBlocks, liveBlocks, opts = {}) {
-    const parts = ecfrDiffBlocks(localBlocks, liveBlocks);
+function ecfrDiffHunkName(text) {
+    const m = /^((?:\([a-zA-Z0-9]{1,4}\))+)/.exec((text || "").trim());
+    return m ? m[1] : "";
+}
+
+function ecfrDiffLines(parts, opts = {}) {
     const counts = { changed: 0, added: 0, removed: 0, tables: 0 };
-    let n = 0;
-    const changeHtml = p => {
-        n++;
-        let inner;
+    const changeLines = p => {
+        const out = [];
         if (p.kind === "table") {
             counts.tables++;
-            inner = `<div class="ecfr-diff-table ${esc(p.state)}">${ecfrDiffBadgeHtml(p.state)}
-                ${p.state === "removed" ? "" : ecfrRenderBlock(p.block, -1)}</div>`;
+            const cap = (p.block && p.block.caption) || "table";
+            out.push({ kind: "hunk", text: `@@ table: ${cap} — ${p.state} @@` });
         } else if (p.kind === "del") {
             counts.removed++;
-            inner = `<p class="ecfr-block"><del class="ecfr-diff-del">${esc(p.block.text || "")}</del></p>`;
+            out.push({ kind: "hunk", text: `@@ ${ecfrDiffHunkName(p.block.text) || "paragraph"} removed @@` });
+            out.push({ kind: "del", text: p.block.text || "" });
         } else if (p.kind === "ins") {
             counts.added++;
-            inner = `<p class="ecfr-block"><ins class="ecfr-diff-ins">${esc(p.block.text || "")}</ins></p>`;
+            out.push({ kind: "hunk", text: `@@ ${ecfrDiffHunkName(p.block.text) || "paragraph"} added @@` });
+            out.push({ kind: "ins", text: p.block.text || "" });
         } else {
             counts.changed++;
-            inner = `<p class="ecfr-block">${ecfrDiffOpsHtml(p.ops)}</p>`;
+            out.push({ kind: "hunk", text: `@@ ${ecfrDiffHunkName(p.b) || ecfrDiffHunkName(p.a) || "paragraph"} @@` });
+            if (opts.wordDiff) out.push({ kind: "word", ops: p.ops });
+            else { out.push({ kind: "del", text: p.a }); out.push({ kind: "ins", text: p.b }); }
         }
-        return `<div class="ecfr-diff-change" data-change-n="${n}">${inner}</div>`;
+        return out;
     };
-    const sameHtml = p => ecfrRenderBlock(p.block, -1);
+    const sameLine = p => ({ kind: "same", text: p.type === "table" ? `[table: ${p.block.caption || "table"}]` : (p.block.text || "") });
     const anyChange = parts.some(p => p.kind !== "same");
-
-    const out = [];
+    const lines = [];
     if (!opts.collapse || !anyChange) {
-        parts.forEach(p => out.push(p.kind === "same" ? sameHtml(p) : changeHtml(p)));
+        parts.forEach(p => { if (p.kind === "same") lines.push(sameLine(p)); else lines.push(...changeLines(p)); });
     } else {
-        // walk runs of unchanged blocks; keep CONTEXT on each side of a change
         let i = 0;
         while (i < parts.length) {
-            if (parts[i].kind !== "same") { out.push(changeHtml(parts[i])); i++; continue; }
+            if (parts[i].kind !== "same") { lines.push(...changeLines(parts[i])); i++; continue; }
             let j = i;
             while (j < parts.length && parts[j].kind === "same") j++;
             const run = parts.slice(i, j);
-            const leading = i === 0 ? 0 : ECFR_DIFF_CONTEXT;        // context after the previous change
-            const trailing = j === parts.length ? 0 : ECFR_DIFF_CONTEXT;   // context before the next
+            const leading = i === 0 ? 0 : ECFR_DIFF_CONTEXT;
+            const trailing = j === parts.length ? 0 : ECFR_DIFF_CONTEXT;
             if (run.length <= leading + trailing + 1) {
-                run.forEach(p => out.push(sameHtml(p)));
+                run.forEach(p => lines.push(sameLine(p)));
             } else {
-                run.slice(0, leading).forEach(p => out.push(sameHtml(p)));
+                run.slice(0, leading).forEach(p => lines.push(sameLine(p)));
                 const hidden = run.slice(leading, run.length - trailing);
-                out.push(`<details class="ecfr-diff-fold"><summary>${hidden.length} unchanged paragraph${
-                    hidden.length === 1 ? "" : "s"}</summary>${hidden.map(sameHtml).join("")}</details>`);
-                run.slice(run.length - trailing).forEach(p => out.push(sameHtml(p)));
+                lines.push({ kind: "fold", n: hidden.length, lines: hidden.map(sameLine) });
+                run.slice(run.length - trailing).forEach(p => lines.push(sameLine(p)));
             }
             i = j;
         }
     }
-
-    if (!anyChange) {
-        return `<div class="ecfr-diff-none">No differences between these two versions of this section.</div>` + out.join("");
-    }
-    const bits = [];
-    if (counts.changed) bits.push(`${counts.changed} paragraph${counts.changed === 1 ? "" : "s"} changed`);
-    if (counts.added) bits.push(`${counts.added} added`);
-    if (counts.removed) bits.push(`${counts.removed} removed`);
-    if (counts.tables) bits.push(`${counts.tables} table${counts.tables === 1 ? "" : "s"} changed`);
-    // The strip is sticky at the top of the frame body, so the step buttons
-    // and the fold checkbox stay in reach however far down the text you are.
-    const fi = opts.frameIndex;
-    const controls = fi == null ? "" : `<span class="ecfr-diff-controls">
-        <button class="ecfr-btn ecfr-btn-sm" title="Previous change" onclick="ecfrDiffStep(${fi}, -1)">‹</button>
-        <span class="ecfr-diff-pos" id="ecfr-diff-pos-${fi}">${n} change${n === 1 ? "" : "s"}</span>
-        <button class="ecfr-btn ecfr-btn-sm" title="Next change" onclick="ecfrDiffStep(${fi}, 1)">›</button>
-        <label class="ecfr-diff-opt" title="Fold runs of unchanged paragraphs to one line; one paragraph of context stays on each side of a change">
-            <input type="checkbox" ${opts.collapse ? "checked" : ""} onchange="ecfrSetDiffCollapse(this.checked)"> Collapse unchanged</label>
-    </span>`;
-    return `<div class="ecfr-diff-summary"><span>${esc(bits.join(" · "))}</span>${controls}</div>` + out.join("");
+    return { lines, counts };
 }
