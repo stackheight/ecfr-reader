@@ -77,6 +77,7 @@ async function openEcfrCompare(key, a, b) {
 
 function cmpShellHtml() {
     return `<div class="cmp-screen">
+        <div class="ecfr-pane-nav" id="cmp-nav"></div>
         <div class="cmp-controls" id="cmp-controls"></div>
         <div class="cmp-terminal">
             <div class="cmp-titlebar"><span class="cmp-title">ecfr-reader — compare</span></div>
@@ -95,6 +96,7 @@ function cmpRenderControls() {
     const section = cmpKey
         ? `<span class="cmp-chosen"><b>${esc(cmpMeta && cmpMeta.citation || cmpKey)}</b> ${esc(cmpMeta && cmpMeta.heading || "")}</span>`
         : `<span class="cmp-chosen cmp-muted">no section open — pick one in the contents</span>`;
+    if (typeof ecfrRenderPaneNav === "function") ecfrRenderPaneNav();      // the prev/next row above, same as Read's
     // Section or whole subpart. Only a subpart can be compared whole: an
     // appendix is one section, and loose sections aren't a division ecfr.gov
     // serves — so the switch is there but off for those.
@@ -114,12 +116,17 @@ function cmpRenderControls() {
         }</select></label>`;
     // Stacked, one thing per line, so a long section heading on the first
     // line can't push the controls under it around.
+    // Shaped like the Read tab's "Amendment history" caption: a small-caps
+    // title, what's being compared beside it, and an italic note under.
     el.innerHTML = `
-        <div class="cmp-row cmp-section-line">${section}${
-            v && v.loading ? `<span class="cmp-muted">loading the amendment dates…</span>` :
-            v && v.error ? `<span class="cmp-muted">amendment dates unavailable: ${esc(v.error)} — Local and Live still compare</span>` :
-            v && v.versions ? `<span class="cmp-muted">${v.versions.length} amendment${v.versions.length === 1 ? "" : "s"} on record since 2017${
-                unit ? " across the subpart" : ""}</span>` : ""}</div>
+        <div class="ecfr-timeline-caption cmp-section-line">
+            <span class="ecfr-timeline-title">Comparing</span>${section}</div>
+        <span class="ecfr-timeline-note cmp-note">${
+            !cmpKey ? "pick a section in the contents, or a subpart heading for all of it" :
+            v && v.loading ? "loading the amendment dates…" :
+            v && v.error ? `amendment dates unavailable: ${esc(v.error)} — Local and Live still compare` :
+            v && v.versions ? `${v.versions.length} amendment${v.versions.length === 1 ? "" : "s"} on record since 2017${
+                unit ? " across the subpart" : ""} · pick A (before) and B (after), then press Compare` : ""}</span>
         <div class="cmp-head">Compare:</div>
         <div class="cmp-row">${scope}</div>
         <div class="cmp-head">Options:</div>

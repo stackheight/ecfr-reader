@@ -1810,11 +1810,11 @@ function ecfrUnitNeighbours() {
 
 // The pane's nav renders on its own, because its prev/next controls change
 // as you scroll — later than the pane itself is painted.
-function ecfrRenderPaneNav() {
-    const el = document.getElementById("ecfr-pane-nav");
-    if (!el) return;
+// The prev/next pair both tabs share, plus whatever the tab puts at the
+// right end (Read: "+ Add frame"; Compare: nothing).
+function ecfrPaneNavHtml(extra = "") {
     const { prev, next } = ecfrUnitNeighbours();
-    el.innerHTML = `
+    return `
         <button class="ecfr-btn ecfr-btn-nav" ${prev ? "" : "disabled"}
             title="${prev ? escAttr(prev.heading || prev.section_key) : ""}"
             onclick="${prev ? `openEcfrSection(${escJs(prev.section_key)})` : ""}">
@@ -1823,10 +1823,21 @@ function ecfrRenderPaneNav() {
             title="${next ? escAttr(next.heading || next.section_key) : ""}"
             onclick="${next ? `openEcfrSection(${escJs(next.section_key)})` : ""}">
             ${next ? esc(ecfrShortLabel(next)) : "End of this subpart"} ›</button>
-        <button class="ecfr-btn ecfr-add-frame"
+        ${extra}`;
+}
+
+function ecfrRenderPaneNav() {
+    const el = document.getElementById("ecfr-pane-nav");
+    if (el) {
+        el.innerHTML = ecfrPaneNavHtml(`<button class="ecfr-btn ecfr-add-frame"
             ${ecfrFrames.length >= ECFR_MAX_FRAMES ? "disabled" : ""}
             title="Open another frame to compare versions side by side"
-            onclick="ecfrAddFrame()">+ Add frame</button>`;
+            onclick="ecfrAddFrame()">+ Add frame</button>`);
+    }
+    // The Compare tab's copy of the same row. An empty third item keeps the
+    // next button where Read's sits, instead of sliding to the right edge.
+    const cmp = document.getElementById("cmp-nav");
+    if (cmp) cmp.innerHTML = ecfrPaneNavHtml(`<span class="ecfr-nav-spacer"></span>`);
 }
 
 // --- The pane's two tabs: Read and Compare ----------------------------

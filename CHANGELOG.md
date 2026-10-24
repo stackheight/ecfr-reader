@@ -42,6 +42,10 @@ back to the amendment whose text it holds (amber dashes; green dots for
 Live), the rail's legend gains "Local & Live = as amended <date>", and the
 Local frame's header says "text as amended <date>" too.
 
+The Compare tab's header matches Read's: the same previous / next row on
+top, and a "Comparing" caption with an italic note under it, shaped like
+the amendment-history caption.
+
 The Compare terminal follows the theme: paper-light in light mode, dark in dark mode.
 
 Also: the Compare terminal stops typing its command one character at a

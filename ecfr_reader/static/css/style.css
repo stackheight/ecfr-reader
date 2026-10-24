@@ -832,7 +832,8 @@ body.ecfr-resizing { cursor: col-resize; user-select: none; }
 .cmp-field > span { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
     color: var(--text-2); }
 .cmp-select { max-width: none; min-width: 13rem; font-size: var(--fs-small); padding: 5px 8px; }
-.cmp-section-line { font-size: var(--fs-small); color: var(--text-2); gap: 14px; }
+.cmp-section-line { font-size: var(--fs-small); color: var(--text-2); gap: 10px; padding-top: 0; }
+.cmp-note { display: block; margin-top: -2px; }
 .cmp-head { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
     color: var(--text-2); margin-top: 4px; }
 .cmp-head + .cmp-row { margin-top: -2px; }
