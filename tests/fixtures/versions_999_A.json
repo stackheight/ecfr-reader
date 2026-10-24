@@ -1,0 +1,77 @@
+{
+ "content_versions": [
+  {
+   "date": "2021-07-29",
+   "amendment_date": "2021-07-29",
+   "issue_date": "2021-07-29",
+   "identifier": "999.11",
+   "name": "\u00a7 999.11",
+   "part": "999",
+   "substantive": true,
+   "removed": false,
+   "subpart": "A",
+   "title": "40",
+   "type": "section"
+  },
+  {
+   "date": "2016-12-23",
+   "amendment_date": "2016-12-23",
+   "issue_date": "2017-01-01",
+   "identifier": "999.10",
+   "name": "\u00a7 999.10",
+   "part": "999",
+   "substantive": true,
+   "removed": false,
+   "subpart": "A",
+   "title": "40",
+   "type": "section"
+  },
+  {
+   "date": "2021-07-29",
+   "amendment_date": "2021-07-29",
+   "issue_date": "2021-07-29",
+   "identifier": "999.10",
+   "name": "\u00a7 999.10",
+   "part": "999",
+   "substantive": false,
+   "removed": false,
+   "subpart": "A",
+   "title": "40",
+   "type": "section"
+  },
+  {
+   "date": "2016-12-23",
+   "amendment_date": "2016-12-23",
+   "issue_date": "2017-01-01",
+   "identifier": "999.11",
+   "name": "\u00a7 999.11",
+   "part": "999",
+   "substantive": true,
+   "removed": false,
+   "subpart": "A",
+   "title": "40",
+   "type": "section"
+  },
+  {
+   "date": "2023-03-01",
+   "amendment_date": "2023-03-01",
+   "issue_date": "2023-03-01",
+   "identifier": "999.12",
+   "name": "\u00a7 999.12",
+   "part": "999",
+   "substantive": false,
+   "removed": true,
+   "subpart": "A",
+   "title": "40",
+   "type": "section"
+  }
+ ],
+ "meta": {
+  "title": "40",
+  "part": "999",
+  "subpart": "A",
+  "result_count": "5",
+  "latest_amendment_date": "2023-03-01",
+  "latest_issue_date": "2023-03-01"
+ }
+}

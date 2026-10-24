@@ -186,12 +186,26 @@ def ecfr_section_versions():
                     "local_snapshot_date": read_meta().get("snapshot_date"), "cached": cached})
 
 
+def _past_date(raw):
+    """Validate a ?date= for the point-in-time routes: (date, None) for a real
+    YYYY-MM-DD not after today, else (None, a 400 response)."""
+    import re
+    from datetime import date
+    when = (raw or "").strip()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", when):
+        return None, (jsonify({"error": "date must be YYYY-MM-DD"}), 400)
+    try:
+        if date.fromisoformat(when) > date.today():
+            return None, (jsonify({"error": "date is in the future"}), 400)
+    except ValueError:
+        return None, (jsonify({"error": "date must be a real calendar date"}), 400)
+    return when, None
+
+
 @bp.route("/api/ecfr/section/at", methods=["GET"])
 def ecfr_section_at():
     """One section as it stood on a date — the /section/live payload shape
     with as_of = that date. Cached for ever: a past version never changes."""
-    import re as _re
-    from datetime import date as _date
     from bs4 import BeautifulSoup
     from .corpus.render import render_standalone
     from .corpus.store import cache_get, cache_put, corpus_exists, get_section_locator
@@ -200,16 +214,11 @@ def ecfr_section_at():
     if not corpus_exists():
         return _ecfr_unavailable()
     key = request.args.get("key", "")
-    when = (request.args.get("date") or "").strip()
     if not key:
         return jsonify({"error": "key is required"}), 400
-    if not _re.fullmatch(r"\d{4}-\d{2}-\d{2}", when):
-        return jsonify({"error": "date must be YYYY-MM-DD"}), 400
-    try:
-        if _date.fromisoformat(when) > _date.today():
-            return jsonify({"error": "date is in the future"}), 400
-    except ValueError:
-        return jsonify({"error": "date must be a real calendar date"}), 400
+    when, bad = _past_date(request.args.get("date"))
+    if bad:
+        return bad
     row = get_section_locator(key)
     if not row:
         return jsonify({"error": f"Section {key!r} not found"}), 404
@@ -495,6 +504,78 @@ def ecfr_unit_live():
         s["as_of"] = as_of
     rendered["as_of"] = as_of
     rendered["part"] = part
+    return jsonify(rendered)
+
+
+@bp.route("/api/ecfr/unit/versions", methods=["GET"])
+def ecfr_unit_versions():
+    """The dates ecfr.gov amended any section of a subpart — the timeline
+    for a subpart opened whole, and the Compare tab's version list in that
+    mode. One request upstream (the versions endpoint filters by subpart),
+    cached 24 h like the per-section route; ?force=1 refetches."""
+    from .corpus.store import cache_get, cache_put, corpus_exists, read_meta, subpart_exists
+    from .corpus.updates import EcfrApiError, subpart_versions
+
+    if not corpus_exists():
+        return _ecfr_unavailable()
+    part = (request.args.get("part") or "").strip()
+    subpart = (request.args.get("subpart") or "").strip()
+    if not part or not subpart:
+        return jsonify({"error": "part and subpart are required"}), 400
+    if not subpart_exists(part, subpart):
+        return jsonify({"error": f"Part {part} subpart {subpart} not found"}), 404
+    force = request.args.get("force") == "1"
+    cache_key = f"versions:unit:{part}/{subpart}"
+    result = None if force else cache_get(cache_key, max_age_s=24 * 3600)
+    cached = result is not None
+    if result is None:
+        try:
+            result = subpart_versions(part, subpart)
+        except EcfrApiError as e:
+            return jsonify({"error": str(e)}), 502
+        cache_put(cache_key, result)
+    return jsonify({"part": part, "subpart": subpart, "versions": result["versions"],
+                    "latest": result.get("latest"), "local_snapshot_date": read_meta().get("snapshot_date"),
+                    "cached": cached})
+
+
+@bp.route("/api/ecfr/unit/at", methods=["GET"])
+def ecfr_unit_at():
+    """A whole subpart as it stood on a date: the /unit/live payload shape
+    with as_of = that date. One request upstream, cached for ever — a past
+    version never changes. Subparts only, for the reason /unit/live gives."""
+    from bs4 import BeautifulSoup
+    from .corpus.render import render_unit
+    from .corpus.store import cache_get, cache_put, corpus_exists, subpart_exists
+    from .corpus.updates import EcfrApiError, fetch_subpart_xml
+
+    if not corpus_exists():
+        return _ecfr_unavailable()
+    part = (request.args.get("part") or "").strip()
+    subpart = (request.args.get("subpart") or "").strip()
+    if not part or not subpart:
+        return jsonify({"error": "part and subpart are required"}), 400
+    when, bad = _past_date(request.args.get("date"))
+    if bad:
+        return bad
+    if not subpart_exists(part, subpart):
+        return jsonify({"error": f"Part {part} subpart {subpart} not found"}), 404
+
+    cache_key = f"at:unit:{part}/{subpart}:{when}"
+    rendered = cache_get(cache_key)
+    if rendered is None:
+        try:
+            xml = fetch_subpart_xml(when, part, subpart)
+            rendered = render_unit(BeautifulSoup(xml, "lxml-xml"), part)
+            if rendered is None or not rendered["sections"]:
+                raise EcfrApiError(f"ecfr.gov returned no content for part {part} subpart {subpart} as of {when}.")
+        except EcfrApiError as e:
+            return jsonify({"error": str(e)}), 502
+        for s in rendered["sections"]:
+            s["as_of"] = when
+        rendered["as_of"] = when
+        rendered["part"] = part
+        cache_put(cache_key, rendered)
     return jsonify(rendered)
 
 

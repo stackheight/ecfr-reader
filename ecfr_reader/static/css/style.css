@@ -504,10 +504,16 @@ header h1, .brand {
     font-size: var(--fs-data); font-weight: 600; color: var(--text-2);
     cursor: pointer; padding: 5px 8px; line-height: 1.35; list-style: none; }
 .ecfr-toc-subpart summary::-webkit-details-marker { display: none; }
-.ecfr-toc-subpart summary::before { content: "▸"; flex: none; width: 10px;
-    color: var(--text-muted); font-weight: 400; }
-.ecfr-toc-subpart[open] summary::before { content: "▾"; }
+/* The caret is its own target: it shows or hides the sections, while the
+   heading beside it opens the whole subpart in the reader. */
+.ecfr-toc-caret-btn { flex: none; width: 14px; margin-left: -2px; color: var(--text-muted);
+    font-weight: 400; border-radius: 3px; text-align: center; }
+.ecfr-toc-caret-btn::before { content: "▸"; }
+.ecfr-toc-subpart[open] .ecfr-toc-caret-btn::before { content: "▾"; }
+.ecfr-toc-caret-btn:hover { background: var(--surface-alt); color: var(--text); }
 .ecfr-toc-subpart summary:hover { color: var(--text); }
+.ecfr-toc-subpart summary.current { background: var(--accent-tint); color: var(--accent);
+    border-radius: 4px; }
 /* A few headings run past 250 chars — clamp so one subpart can't swallow the
    sidebar; the full text is in the summary's title tooltip. */
 .ecfr-toc-subpart-label { display: -webkit-box; -webkit-line-clamp: 3;
@@ -827,6 +833,9 @@ header h1, .brand {
 @keyframes cmp-blink { 50% { opacity: 0; } }
 .cmp-line { white-space: pre-wrap; }
 .cmp-meta { color: #e0c36b; font-weight: 700; }
+.cmp-sec { color: #e0c36b; font-weight: 700; margin-top: 14px; }
+.cmp-sec + .cmp-sec { margin-top: 0; }
+.cmp-scope { margin-left: 4px; }
 .cmp-hunk { color: #7fdcea; margin-top: 6px; }
 .cmp-same { color: #8e9aa8; }
 .cmp-del { color: #ff8078; background: rgba(255, 128, 120, .10); }

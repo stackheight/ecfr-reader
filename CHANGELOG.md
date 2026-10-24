@@ -1,13 +1,28 @@
 # Changelog
 
-## 1.2.2 — 2026-10-24
+## 1.3.0 — 2026-10-24
 
-The Compare terminal stops typing its command one character at a time;
-the command and its output just appear. The macOS window buttons are
-gone from the title bar, and the `$` prompt is now a two-line prompt in
-the style kitty users tend to run: `reader@ecfr`, the section as a path
-under `~/40cfr`, and the clock on the first line, a `❯` and the command
-on the second. An idle prompt waits under each result.
+**A subpart is a thing you can open whole.** Clicking a subpart heading in
+the contents now opens the whole subpart as what you are working on,
+instead of only expanding its list (the caret beside the heading does
+that). While it is open: the amendment rail shows every date any of its
+sections changed (`GET /api/ecfr/unit/versions`, one request to
+ecfr.gov), a dated frame holds the whole subpart as it stood that day
+(`GET /api/ecfr/unit/at`, one request, cached for ever), and the Compare
+tab diffs the whole subpart section by section — a `---`/`+++` pair per
+changed section, sections added or removed between the two dates against
+`/dev/null`, unchanged sections folded — with a `this section | whole
+subpart` switch in its controls. Click a section to narrow back to it.
+Links: `#ecfr/read/60/OOOOb` and `#ecfr/compare/60/OOOOb/A..B`. Only
+subparts open whole: an appendix is one section, and loose sections are
+not a division ecfr.gov serves.
+
+Also: the Compare terminal stops typing its command one character at a
+time; the command and its output just appear. The macOS window buttons are
+gone from the title bar, and the `$` prompt is a two-line prompt in the
+style kitty users tend to run — `reader@ecfr`, the section (or subpart) as
+a path under `~/40cfr`, and the clock on the first line, a `❯` and the
+command on the second — with an idle prompt under each result.
 
 ## 1.2.1 — 2026-10-24
 

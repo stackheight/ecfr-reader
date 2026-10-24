@@ -1,8 +1,9 @@
 // =====================================================================
 // ecfr-reader — the page's shared globals, in one classic script loaded
 // before ecfr-annotator.js, ecfr-diff.js and ecfr.js: escaping helpers,
-// toasts, the single-screen "router" (the hash is #ecfr or
-// #ecfr/read/<section key>, or #ecfr/compare/<key>/<A>..<B>), and the light / dark theme.
+// toasts, the single-screen "router" (the hash is #ecfr, #ecfr/read/<key>
+// or #ecfr/compare/<key>/<A>..<B>, where <key> is a section key such as
+// 60:60.4230 or a whole subpart as <part>/<subpart>), and the light / dark theme.
 // =====================================================================
 
 const API_BASE = "";
@@ -67,7 +68,11 @@ let _restoringHash = false;
 
 function _stateHash() {
     if (!ecfrCurrentKey) return "#ecfr";
-    const key = encodeURIComponent(ecfrCurrentKey);
+    // A subpart in focus is addressed as <part>/<subpart> — two segments, no
+    // colon — and a section by its key, which always has one.
+    const key = (typeof ecfrUnitFocused === "function" && ecfrUnitFocused())
+        ? ecfrUnitId().split("/").map(encodeURIComponent).join("/")
+        : encodeURIComponent(ecfrCurrentKey);
     if (typeof ecfrPaneTab !== "undefined" && ecfrPaneTab === "compare") {
         // a comparison is a link: #ecfr/compare/<key>/<A>..<B>
         let h = `#ecfr/compare/${key}`;
@@ -114,11 +119,18 @@ async function restoreFromHash() {
         // 1.2.0 wrote #compare/<key>/<A>..<B>; it reads as #ecfr/compare/…
         if (parts[0] === "compare") parts.unshift("ecfr");
         const pair = p => p && p.includes("..") ? p.split("..").map(decodeURIComponent) : [null, null];
-        if (parts[0] === "ecfr" && parts[1] === "compare" && parts[2]) {
-            await openEcfrCompare(decodeURIComponent(parts[2]), ...pair(parts[3]));
-        } else if (parts[0] === "ecfr" && parts[1] === "read" && parts[2]) {
-            if (typeof ecfrPaneTab !== "undefined") ecfrPaneTab = "read";   // back from a compare link
-            await openEcfrSection(decodeURIComponent(parts[2]));
+        if (parts[0] === "ecfr" && (parts[1] === "compare" || parts[1] === "read") && parts[2]) {
+            // <part>/<subpart> (no colon) names a whole subpart; a section key has one
+            const whole = !decodeURIComponent(parts[2]).includes(":");
+            const key = whole ? `${decodeURIComponent(parts[2])}/${decodeURIComponent(parts[3] || "")}`
+                              : decodeURIComponent(parts[2]);
+            if (parts[1] === "compare") {
+                await openEcfrCompare(key, ...pair(parts[whole ? 4 : 3]));
+            } else {
+                if (typeof ecfrPaneTab !== "undefined") ecfrPaneTab = "read";   // back from a compare link
+                if (whole) await openEcfrSubpart(...key.split("/"));
+                else await openEcfrSection(key);
+            }
         } else {
             await renderEcfrDashboard();
         }

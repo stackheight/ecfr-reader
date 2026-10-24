@@ -66,14 +66,20 @@ GitHub workflow.
   stars pin above the tree.
 - **Reading units.** You read a subpart (or an appendix, or a part's loose
   sections) as one scrolling page, not a section at a time. Previous / next
-  unit at the top and bottom.
+  unit at the top and bottom. Click a subpart's heading in the contents to
+  open the whole subpart as the thing you are working on: the history rail,
+  the dated frames and Compare then cover every section of it at once;
+  click a section to narrow back to one. The caret beside the heading just
+  shows or hides its sections.
 - **Frames.** One to six side-by-side frames, each on a source: the local
   snapshot, live text fetched from ecfr.gov, or the section as of a past
   amendment. Drag to reorder.
 - **Amendment history.** A labelled rail across the top of a section:
   every date ecfr.gov amended it (its history starts 2017), with Local and
   Live on the same rail. Click a date to open that version in a frame
-  beside the one you are reading.
+  beside the one you are reading. With a whole subpart open the rail shows
+  every date any of its sections changed, and a dated frame holds the whole
+  subpart as it stood that day (one request to ecfr.gov, like Live).
 - **Compare.** The reading pane's second tab (Read | Compare), fed by
   the same contents sidebar. Pick two versions of the open section, A
   (before) and B (after), and the difference prints into a mock terminal
@@ -81,8 +87,11 @@ GitHub workflow.
   enumerator ("(e)"), runs of unchanged paragraphs folded to one line
   (click to show), `--word-diff` for the changed words marked inside each
   paragraph. The paragraph stays the unit of the diff — it is what the
-  CFR cites; tables are flagged whole. A comparison is a link you can
-  send.
+  CFR cites; tables are flagged whole. A whole subpart diffs section by
+  section like a multi-file diff, with sections added or removed between
+  the two dates shown against `/dev/null` and unchanged ones folded. A
+  comparison is a link you can send: `#ecfr/compare/60:60.4230/A..B` for a
+  section, `#ecfr/compare/60/OOOOb/A..B` for a subpart.
 - **Marks.** A toolbar in the PDF-editor idiom: highlight in four colours,
   underline, strike, an eraser, undo / redo, and a comment on any mark.
   Marks on live frames are scratch and never saved. A mark whose text has
@@ -133,6 +142,8 @@ Everything the page uses is plain JSON under `/api/ecfr/`:
 | `GET /unit/live?part=&subpart=`, `GET /section/live?key=` | the same from ecfr.gov, as of its current issue            |
 | `GET /section/versions?key=` | the dates ecfr.gov amended the section (cached a day; `?force=1`) |
 | `GET /section/at?key=&date=` | the section as of a date (cached for ever) |
+| `GET /unit/versions?part=&subpart=` | the dates any section of the subpart was amended, each naming its sections (cached a day; `?force=1`) |
+| `GET /unit/at?part=&subpart=&date=` | the whole subpart as of a date (cached for ever) |
 | `GET /search?q=&part=&limit=&offset=`                     | full-text search                                           |
 | `GET /updates[?force=1]`                                  | the notify-only update check (cached 24 h)                 |
 | `GET /annotations?scope=&key=`                            | notes and marks at a scope, with counts per scope          |

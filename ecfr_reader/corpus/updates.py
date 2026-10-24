@@ -143,6 +143,30 @@ def _parts_scope(parts_spec: str) -> set:
     return out
 
 
+def _merge_versions(content_versions, with_sections=False):
+    """One entry per amendment date out of the versioner's per-section rows:
+    a date is substantive/removed if any row on it was; with_sections also
+    lists which sections (identifiers) changed that day."""
+    by_date = {}
+    for v in content_versions or []:
+        date = v.get("date") or v.get("amendment_date")
+        if not date:
+            continue
+        cur = by_date.setdefault(date, {"date": date, "issue_date": v.get("issue_date"),
+                                        "substantive": False, "removed": False})
+        cur["substantive"] = cur["substantive"] or bool(v.get("substantive"))
+        cur["removed"] = cur["removed"] or bool(v.get("removed"))
+        if with_sections:
+            cur.setdefault("sections", set()).add(v.get("identifier") or "")
+    versions = []
+    for k in sorted(by_date):
+        cur = by_date[k]
+        if with_sections:
+            cur["sections"] = sorted(s for s in cur["sections"] if s)
+        versions.append(cur)
+    return versions
+
+
 def section_versions(part: str, identifier: str, is_appendix: bool = False, title: int = TITLE) -> dict:
     """The dates ecfr.gov amended one section (its point-in-time history,
     from 2017-01-01 on): {"versions": [{date, issue_date, substantive,
@@ -151,16 +175,20 @@ def section_versions(part: str, identifier: str, is_appendix: bool = False, titl
     changed — which is what the reader's timeline shows."""
     params = {"part": part, ("appendix" if is_appendix else "section"): identifier}
     d = _get(f"/versions/title-{title}.json", params)
-    by_date = {}
-    for v in d.get("content_versions") or []:
-        date = v.get("date") or v.get("amendment_date")
-        if not date:
-            continue
-        cur = by_date.setdefault(date, {"date": date, "issue_date": v.get("issue_date"),
-                                        "substantive": False, "removed": False})
-        cur["substantive"] = cur["substantive"] or bool(v.get("substantive"))
-        cur["removed"] = cur["removed"] or bool(v.get("removed"))
-    versions = [by_date[k] for k in sorted(by_date)]
+    versions = _merge_versions(d.get("content_versions"))
+    meta = d.get("meta") or {}
+    return {"versions": versions,
+            "latest": meta.get("latest_amendment_date") or (versions[-1]["date"] if versions else None)}
+
+
+def subpart_versions(part: str, subpart: str, title: int = TITLE) -> dict:
+    """The dates ecfr.gov amended ANY section of a subpart, in one request:
+    the versions endpoint filters by subpart and tags every row with its
+    section, so the whole history of part 60 subpart JJJJ (69 rows, 23
+    sections, 12 dates) costs the same as one section's. Each version
+    carries "sections": the identifiers amended on that date."""
+    d = _get(f"/versions/title-{title}.json", {"part": part, "subpart": subpart})
+    versions = _merge_versions(d.get("content_versions"), with_sections=True)
     meta = d.get("meta") or {}
     return {"versions": versions,
             "latest": meta.get("latest_amendment_date") or (versions[-1]["date"] if versions else None)}

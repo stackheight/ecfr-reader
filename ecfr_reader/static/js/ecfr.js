@@ -34,6 +34,13 @@ let ecfrUnitSections = [];      // its sections in document order (metadata + bl
 let ecfrLocalCache = {};        // section_key -> local payload, filled by the unit load
 let ecfrUnitLoading = false;
 let ecfrUnitHeading = "";       // the subpart/appendix heading, for the frame header
+// What the reader is focused on: one section (the default — a section row, a
+// search hit, a #ecfr/read/<key> link) or the whole subpart (its heading in
+// the tree, a subpart favorite, #ecfr/read/<part>/<subpart>). The timeline
+// and the Compare tab follow it; scrolling, which moves the current section,
+// never changes it. Only a subpart can be the focus: ecfr.gov serves a
+// subpart whole, not an appendix or a part's loose sections.
+let ecfrFocus = "section";      // "section" | "unit"
 let ecfrSectionObserver = null; // lazy block fill + annotator lifecycle
 let ecfrLoading = false;
 let ecfrLiveCache = {};         // section_key -> GET /api/ecfr/section/live payload (survives
@@ -347,8 +354,9 @@ const ECFR_SOURCES = {
 // point-in-time history starts 2017-01-01). Each date becomes a source of
 // its own, "version:<date>", registered here the first time it's asked for
 // — so the frame machinery, the picker and the annotator (scratch, like
-// live) all work on it unchanged. The text arrives from /api/ecfr/section/at,
-// one request per section and date, cached for ever on the server.
+// live) all work on it unchanged. The text arrives whole for a subpart
+// (/api/ecfr/unit/at, one request per subpart and date) and per section
+// otherwise (/api/ecfr/section/at); both are cached for ever on the server.
 let ecfrVersionCache = {};        // date -> { section_key -> payload }
 
 function ecfrVersionSource(date) {
@@ -359,8 +367,7 @@ function ecfrVersionSource(date) {
             label: () => `As of ${date}`,
             editable: true,
             persists: false,
-            single: true,         // no unit endpoint for a date: one section per frame, one request each
-            ensure: (key) => ecfrEnsureVersion(date, key),
+            ensure: (key) => ecfrEnsureVersionData(date, key),
             data: (key) => (ecfrVersionCache[date] || {})[key] || null,
         };
     }
@@ -387,6 +394,43 @@ async function ecfrEnsureVersion(date, key) {
     return ecfrVersionFetches[id];
 }
 
+let ecfrUnitVersionCache = {};    // "part/subpart|date" -> the /api/ecfr/unit/at payload
+let ecfrUnitVersionFetches = {};  // the same key -> in-flight promise
+
+// The dated twin of ecfrEnsureLiveData: a subpart as of a date is ONE
+// request, which seeds every section of it in ecfrVersionCache. A section
+// the subpart didn't have on that date resolves to null rather than asking
+// ecfr.gov again for text it has already said wasn't there; appendices and
+// loose sections take the per-section route as before.
+async function ecfrEnsureVersionData(date, key) {
+    const have = (ecfrVersionCache[date] || {})[key];
+    if (have) return have;
+    const unit = ecfrUnitOf(key);
+    if (unit && unit.subpart) {
+        await ecfrEnsureUnitVersion(date, unit);
+        return (ecfrVersionCache[date] || {})[key] || null;
+    }
+    return ecfrEnsureVersion(date, key);
+}
+
+async function ecfrEnsureUnitVersion(date, unit) {
+    const id = `${unit.part}/${unit.subpart}|${date}`;
+    if (ecfrUnitVersionCache[id]) return ecfrUnitVersionCache[id];
+    if (!ecfrUnitVersionFetches[id]) {
+        ecfrUnitVersionFetches[id] = (async () => {
+            const params = new URLSearchParams({ part: unit.part, subpart: unit.subpart, date });
+            const res = await fetch(`${API_BASE}/api/ecfr/unit/at?${params.toString()}`);
+            const d = await res.json();
+            if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+            const bucket = (ecfrVersionCache[date] = ecfrVersionCache[date] || {});
+            (d.sections || []).forEach(s => { bucket[s.section_key] = s; });
+            ecfrUnitVersionCache[id] = d;
+            return d;
+        })().finally(() => { delete ecfrUnitVersionFetches[id]; });
+    }
+    return ecfrUnitVersionFetches[id];
+}
+
 // --- The timeline ----------------------------------------------------
 // Across the top of the pane: every date ecfr.gov amended the open section,
 // plus Local (the snapshot) and Live (today) on the same rail. It is the
@@ -411,12 +455,45 @@ async function ecfrLoadVersions(key) {
     ecfrRenderTimeline();
 }
 
+// The subpart's history: every date ANY of its sections changed, from
+// /api/ecfr/unit/versions (one request upstream). Shown while the subpart is
+// the focus; each tick knows which sections it touched.
+async function ecfrLoadUnitVersions(unit) {
+    const unitId = ecfrUnitId(unit);
+    if (!unitId) return;
+    ecfrVersions = { unitId, loading: true };
+    ecfrRenderTimeline();
+    try {
+        const params = new URLSearchParams({ part: unit.part, subpart: unit.subpart });
+        const res = await fetch(`${API_BASE}/api/ecfr/unit/versions?${params.toString()}`);
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+        if (ecfrUnitId() !== unitId) return;
+        ecfrVersions = { unitId, ...d };
+    } catch (err) {
+        if (ecfrUnitId() !== unitId) return;
+        ecfrVersions = { unitId, error: err.message || "Couldn't load the version history." };
+    }
+    ecfrRenderTimeline();
+}
+
+// The timeline for what's in focus — the subpart's history or the current
+// section's — fetched only when it isn't already the one on screen.
+function ecfrEnsureTimeline() {
+    if (!ecfrCurrentKey) return;
+    if (ecfrUnitFocused()) {
+        if (!ecfrVersions || ecfrVersions.unitId !== ecfrUnitId()) ecfrLoadUnitVersions(ecfrUnit);
+    } else if (!ecfrVersions || ecfrVersions.key !== ecfrCurrentKey) {
+        ecfrLoadVersions(ecfrCurrentKey);
+    }
+}
+
 function ecfrTimelineTicks() {
     const v = ecfrVersions;
     if (!v || !v.versions) return [];
     const today = new Date().toISOString().slice(0, 10);
     const ticks = v.versions.map(x => ({ id: `version:${x.date}`, date: x.date, kind: "version",
-        substantive: x.substantive, removed: x.removed, issue: x.issue_date }));
+        substantive: x.substantive, removed: x.removed, issue: x.issue_date, sections: x.sections }));
     const local = v.local_snapshot_date || (ecfrStatus && ecfrStatus.snapshot_date);
     if (local) ticks.push({ id: "local", date: local, kind: "local" });
     ticks.push({ id: "live", date: today, kind: "live" });
@@ -428,7 +505,9 @@ function ecfrRenderTimeline() {
     const el = document.getElementById("ecfr-timeline");
     if (!el) return;
     const v = ecfrVersions;
-    if (!v || v.key !== ecfrCurrentKey) { el.innerHTML = ""; return; }
+    const unit = ecfrUnitFocused();
+    const matches = v && (unit ? v.unitId === ecfrUnitId() : v.key === ecfrCurrentKey);
+    if (!matches) { el.innerHTML = ""; return; }
     if (v.loading) { el.innerHTML = `<span class="ecfr-timeline-note">Loading the version history…</span>`; return; }
     if (v.error) { el.innerHTML = `<span class="ecfr-timeline-note">Version history unavailable: ${esc(v.error)}</span>`; return; }
     const ticks = ecfrTimelineTicks();
@@ -439,6 +518,7 @@ function ecfrRenderTimeline() {
         const title = (t.kind === "local" ? `Your local snapshot (${t.date})`
             : t.kind === "live" ? `Live ecfr.gov (today, ${t.date})`
             : `Amended ${t.date}${t.issue && t.issue !== t.date ? ` (in effect ${t.issue})` : ""}${
+                t.sections ? ` — ${t.sections.length} section${t.sections.length === 1 ? "" : "s"}: ${t.sections.join(", ")}` : ""}${
                 t.removed ? " — removed" : t.substantive ? " — substantive" : ""}`) + " — click to open this version in a frame";
         return `<button class="ecfr-tick ${t.kind} ${showing.has(t.id) ? "on" : ""} ${t.removed ? "removed" : ""}"
             data-date="${escAttr(t.date)}" title="${escAttr(title)}"
@@ -447,8 +527,9 @@ function ecfrRenderTimeline() {
     }).join("");
     const n = v.versions.length;
     el.innerHTML = `<div class="ecfr-timeline-caption">
-            <span class="ecfr-timeline-title">Amendment history</span>
-            <span class="ecfr-timeline-note">${n} amendment${n === 1 ? "" : "s"} on record since 2017 · click a date to open that version beside this one</span>
+            <span class="ecfr-timeline-title">Amendment history${unit ? ` — Subpart ${esc(ecfrUnit.subpart)}, whole subpart` : ""}</span>
+            <span class="ecfr-timeline-note">${n} amendment${n === 1 ? "" : "s"} on record since 2017${
+                unit ? " across its sections" : ""} · click a date to open that version beside this one</span>
             <span class="ecfr-timeline-legend"><i class="lg version"></i>amendment <i class="lg local"></i>Local <i class="lg live"></i>Live</span>
         </div>
         <div class="ecfr-timeline-rail">${tickHtml}</div>`;
@@ -822,13 +903,36 @@ function ecfrSameUnit(a, b) {
         && a.appendix === b.appendix;
 }
 
+// "<part>/<subpart>" for a subpart unit (the favorites' node_key form, and
+// the hash's), null for an appendix or loose sections.
+function ecfrUnitId(unit = ecfrUnit) {
+    return unit && unit.subpart ? `${unit.part}/${unit.subpart}` : null;
+}
+
+function ecfrUnitFocused() {
+    return ecfrFocus === "unit" && !!ecfrUnitId();
+}
+
+// The focus changed without the unit changing (the subpart heading clicked
+// while one of its sections was open, or the reverse): everything that reads
+// the focus repaints, nothing is refetched.
+function ecfrApplyFocus() {
+    syncHash(false);
+    renderEcfrToc();
+    ecfrRenderPaneTabs();
+    ecfrEnsureTimeline();
+    if (ecfrPaneTab === "compare" && typeof cmpShow === "function") cmpShow();
+}
+
 // Open a section: make sure its UNIT is on screen, then go to it.
 //
 // The unit is the page now, so clicking a sibling section is a scroll, not a
 // reload — which is the whole point. Only crossing into another unit fetches.
-async function openEcfrSection(key) {
+async function openEcfrSection(key, opts = {}) {
     if (!key) return;
     showScreen("ecfr");
+    const refocused = !opts.keepFocus && ecfrFocus !== "section";
+    if (!opts.keepFocus) ecfrFocus = "section";
     const part = key.split(":")[0];
     ecfrCurrentPart = part;
     ecfrExpanded.add(part);
@@ -841,7 +945,8 @@ async function openEcfrSection(key) {
     // dashboard (back to a section from #ecfr) still needs the full paint.
     if (ecfrLocalCache[key] && ecfrSameUnit(ecfrUnit, ecfrUnitOf(key))
             && document.querySelector(".ecfr-reader")) {
-        ecfrSetCurrentSection(key, { scroll: true });
+        await ecfrSetCurrentSection(key, { scroll: true });
+        if (refocused) ecfrApplyFocus();
         return;
     }
 
@@ -920,7 +1025,7 @@ async function ecfrSetCurrentSection(key, opts = {}) {
 // The per-section extra: its annotations. Kept out of the unit fetch
 // because they follow the section you're reading, not the unit you loaded.
 async function ecfrLoadSectionSidecars(key) {
-    if (!ecfrVersions || ecfrVersions.key !== key) ecfrLoadVersions(key);   // in parallel; it paints itself
+    ecfrEnsureTimeline();                       // in parallel; it paints itself
     const annRes = await fetch(`${API_BASE}/api/ecfr/annotations?scope=section&key=${encodeURIComponent(key)}`)
         .catch(() => null);
     if (ecfrCurrentKey !== key) return;         // a faster scroll won
@@ -1503,10 +1608,13 @@ function ecfrTocSections(partData) {
 
         const label = ecfrSubpartLabel(g.heading, g.subpart);
         const hasFavChild = g.items.some(sec => ecfrFavKeys.has(sec.section_key));
+        const focused = ecfrUnitFocused() && ecfrUnit.part === partData.part.part && ecfrUnit.subpart === g.subpart;
         return `<details class="ecfr-toc-subpart" data-subpart="${escAttr(`${partData.part.part}/${g.subpart}`)}"
-            ${g.items.some(i => i.section_key === ecfrCurrentKey) ? "open" : ""}>
-            <summary title="${escAttr(label)}"
-                onclick="event.preventDefault(); ecfrSubpartClicked(this, ${escJs(partData.part.part)}, ${escJs(g.subpart)})">
+            ${focused || g.items.some(i => i.section_key === ecfrCurrentKey) ? "open" : ""}>
+            <summary class="${focused ? "current" : ""}" title="${escAttr(label)} — open the whole subpart"
+                onclick="event.preventDefault(); openEcfrSubpart(${escJs(partData.part.part)}, ${escJs(g.subpart)})">
+                <span class="ecfr-toc-caret-btn" role="button" tabindex="0" title="Show or hide its sections"
+                    onclick="event.preventDefault(); event.stopPropagation(); ecfrSubpartCaretClicked(this)"></span>
                 <span class="ecfr-toc-subpart-label">${esc(label)}</span>
                 ${hasFavChild ? `<span class="ecfr-fav-below" title="Contains favorites">●</span>` : ""}
                 ${ecfrStarHtml("subpart", partData.part.part, g.subpart)}
@@ -1516,20 +1624,20 @@ function ecfrTocSections(partData) {
     }).join("");
 }
 
-// Clicking a subpart heading does BOTH things you meant: expands the list
-// AND opens the subpart's text in the reader (the reader loads whole
-// units, so this is one fetch, not a section-by-section crawl). Clicking
-// an open subpart just collapses it — no reload.
-function ecfrSubpartClicked(summaryEl, part, code) {
-    const det = summaryEl.closest("details");
-    if (det.open) { det.open = false; return; }
-    det.open = true;
-    openEcfrSubpart(part, code);
+// The subpart heading itself opens the subpart whole (openEcfrSubpart, one
+// fetch); only the caret in front of it expands or collapses the section
+// list — so a heading click always means "show me this subpart", never
+// "hide it".
+function ecfrSubpartCaretClicked(caretEl) {
+    const det = caretEl.closest("details");
+    if (det) det.open = !det.open;
 }
 
-// Open a subpart: expand its part, load the TOC if needed, and land on its
-// first section — a subpart has no page of its own. Stage 6's citation
-// cross-links reuse this.
+// Open a subpart WHOLE: expand its part, load the TOC if needed, show the
+// unit from its first section, and make the subpart the focus — so the
+// timeline shows every date any of its sections changed, dated frames hold
+// all of it, and the Compare tab diffs all of it at once. The tree's subpart
+// headings, the favorites band and #ecfr/read/<part>/<subpart> come here.
 async function openEcfrSubpart(part, code) {
     showScreen("ecfr");
     ecfrExpanded.add(part);
@@ -1537,9 +1645,10 @@ async function openEcfrSubpart(part, code) {
         const data = await loadEcfrPart(part);
         const first = (data.sections || []).find(s => s.subpart === code);
         if (!first) { toast(`Couldn't find subpart ${code} in part ${part}.`); return; }
-        await openEcfrSection(first.section_key);
-        // Re-render so the subpart's <details> shows open around the section.
-        renderEcfrToc();
+        ecfrFocus = "unit";
+        await openEcfrSection(first.section_key, { keepFocus: true });
+        if (!ecfrUnit || ecfrUnit.part !== part || ecfrUnit.subpart !== code) return;   // the load failed, or another click won
+        ecfrApplyFocus();     // the hash, the tree's highlight, the unit timeline, the Compare tab
     } catch (err) {
         console.error("Error opening eCFR subpart:", err);
         toast(`Couldn't open part ${part} subpart ${code}.`);
@@ -1642,10 +1751,12 @@ function ecfrRenderPaneTabs() {
         title="${escAttr(title)}" onclick="ecfrSetPaneTab(${escJs(name)})">${label}</button>`;
     el.innerHTML = `<nav class="workspace-nav">${
         tab("read", "Read", "The section's text, in frames")}${
-        tab("compare", "Compare", "Two versions of this section, as a diff")}</nav>
+        tab("compare", "Compare", ecfrUnitFocused() ? "Two versions of the whole subpart, as a diff"
+                                                    : "Two versions of this section, as a diff")}</nav>
         <span class="ecfr-pane-tabs-hint">${ecfrPaneTab === "compare"
-            ? (ecfrCurrentKey ? "the section open in the contents — pick another there to compare it"
-                              : "pick a section in the contents to compare its versions")
+            ? (!ecfrCurrentKey ? "pick a section in the contents to compare its versions"
+                : ecfrUnitFocused() ? "the whole subpart open in the contents — click one of its sections there to narrow to it"
+                : "the section open in the contents — pick another there, or its subpart heading for all of it")
             : ""}</span>`;
 }
 
@@ -1758,8 +1869,8 @@ function ecfrFrameHtml(frame, index) {
 
     // WHICH SECTIONS THIS FRAME SHOWS.
     //
-    // Every frame shows the whole unit, live ones included — because a live
-    // subpart is now ONE request (/api/ecfr/unit/live), not 23. It was 23
+    // Every frame shows the whole unit, live and dated ones included — because
+    // a subpart is ONE request (/api/ecfr/unit/live, /unit/at), not 23. It was 23
     // before, which earned a real HTTP 429 and forced live frames down to a
     // single section; the author's fix removed the reason.
     //
@@ -1768,7 +1879,7 @@ function ecfrFrameHtml(frame, index) {
     // fall back to per-section fetching, so a live frame shows only what
     // you're reading rather than firing one request per loose section.
     const liveUnitFetchable = !!(ecfrUnit && ecfrUnit.subpart);
-    const unitFrame = (src.persists !== false || liveUnitFetchable) && !src.single;
+    const unitFrame = src.persists !== false || liveUnitFetchable;
     const sections = unitFrame
         ? ecfrUnitSections
         : ecfrUnitSections.filter(s => s.section_key === ecfrCurrentKey);
@@ -1923,9 +2034,14 @@ async function ecfrFillSection(article, key, frameIndex) {
             return;
         }
         data = src.data(key);
-        if (!data) return;
         // The pane may have re-rendered under us while ecfr.gov answered.
         if (!document.body.contains(holder)) return;
+        if (!data) {
+            // The source answered and hasn't got this section: it wasn't in
+            // the subpart on that date (or isn't upstream today).
+            holder.innerHTML = `<p class="hint">Not in this version of the subpart.</p>`;
+            return;
+        }
     }
     holder.dataset.filled = "1";
     holder.innerHTML = (data.blocks || []).map(ecfrRenderBlock).join("");
