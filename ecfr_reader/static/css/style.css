@@ -467,7 +467,7 @@ body.ecfr-resizing { cursor: col-resize; user-select: none; }
 .ecfr-timeline { flex: none; padding: 2px 10px 6px; border-bottom: 1px solid var(--border);
     overflow-x: auto; overflow-y: hidden; }
 .ecfr-timeline:empty { display: none; }
-.ecfr-timeline-rail { position: relative; height: 40px; margin: 2px 0 0; }
+.ecfr-timeline-rail { position: relative; height: 40px; margin: 14px 0 0; }
 /* Leads drawn on the rail line itself: from a snapshot back to the amendment
    it holds. Amber dashes for Local, green dots for Live; the tick marks sit
    above them. */
