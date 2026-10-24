@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ecfr-reader"
-version = "1.1.0"
+version = "1.1.1"
 description = "A local-first reader for 40 CFR: fetch the eCFR, read it offline, mark it up, diff it against ecfr.gov."
 readme = "README.md"
 license = "GPL-3.0-or-later"

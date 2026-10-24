@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 — 2026-10-23
+
+The favorites are a pinned, collapsible band under the search box: the
+contents tree scrolls beneath them and they stay in view. Clicking a
+favorite opens it in the reader and brings its row into view in the tree
+(its subpart expanded).
+
 ## 1.1.0 — 2026-10-23
 
 **The version timeline.** Across the top of an open section: every date

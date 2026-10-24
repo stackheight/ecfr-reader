@@ -334,7 +334,16 @@ header h1, .brand {
    hovering the right edge is exactly what summons the bar, so the two arrive
    together in the same pixels. `stable` keeps the gutter there always, so the
    layout can't shift under the cursor mid-reach. */
-.ecfr-toc { scrollbar-gutter: stable; }
+/* The sidebar is three bands: the search box, the favorites (pinned —
+   collapsible, with their own scroll when long), and the tree, which is
+   the only band that scrolls with the page's contents. */
+.ecfr-toc { display: flex; flex-direction: column; overflow: hidden; scrollbar-gutter: auto; }
+.ecfr-search { flex: none; }
+#ecfr-search-results { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+#ecfr-search-results:empty { flex: none; }
+#ecfr-toc-tree { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ecfr-toc-favs { flex: none; max-height: 42%; overflow-y: auto; scrollbar-gutter: stable; }
+.ecfr-toc-root { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
 /* The pane itself no longer scrolls — each frame body does, so the two
    sides can be scrolled to matching places independently. */
 .ecfr-pane { display: flex; flex-direction: column; overflow: hidden; padding: 14px; }

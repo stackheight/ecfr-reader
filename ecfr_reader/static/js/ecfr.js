@@ -706,14 +706,33 @@ function ecfrFavoritesCardHtml() {
 // One entry point for "go to whatever this favorite points at". Sections
 // open directly; a subpart expands its part and opens its first section;
 // a part expands and scrolls to its anchor.
+// A favorite does two things: opens the node in the reader, and brings its
+// row into view in the tree below — the star is a bookmark into the
+// contents as much as into the text.
 async function openEcfrFavorite(nodeType, nodeKey) {
-    if (nodeType === "section") { openEcfrSection(nodeKey); return; }
+    if (nodeType === "section") {
+        await openEcfrSection(nodeKey);
+        ecfrRevealInToc(`.ecfr-toc-section[data-key="${CSS.escape(nodeKey)}"], .ecfr-toc-appendix[data-key="${CSS.escape(nodeKey)}"]`);
+        return;
+    }
     if (nodeType === "subpart") {
         const [part, code] = nodeKey.split("/");
-        openEcfrSubpart(part, code);
+        await openEcfrSubpart(part, code);
+        ecfrRevealInToc(`.ecfr-toc-subpart[data-subpart="${CSS.escape(nodeKey)}"] > summary`);
         return;
     }
     await openEcfrPart(nodeKey);
+}
+
+// Scroll the tree so the row matching `selector` sits in view, once the
+// tree has painted it (the part expands and re-renders on open).
+function ecfrRevealInToc(selector) {
+    const tree = document.querySelector("#ecfr-toc-tree .ecfr-toc-root");
+    const row = tree && tree.querySelector(selector);
+    if (!row) return;
+    const open = row.closest("details.ecfr-toc-subpart");
+    if (open) open.open = true;
+    row.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
 function ecfrUpdateSummary(s) {
@@ -1549,6 +1568,7 @@ function ecfrTocSections(partData) {
             return `<div class="ecfr-toc-row">
                 <button
                     class="ecfr-toc-section ${sec.section_key === ecfrCurrentKey ? "current" : ""} ${sec.type === "appendix" ? "appendix" : ""}"
+                    data-key="${escAttr(sec.section_key)}"
                     title="${escAttr(label)}"
                     onclick="openEcfrSection(${escJs(sec.section_key)})">
                     ${esc(label)}
@@ -1566,7 +1586,7 @@ function ecfrTocSections(partData) {
             const sec = g.items[0];
             const label = ecfrSectionLabel(sec);
             return `<div class="ecfr-toc-row ecfr-toc-appendix-row">
-                <button class="ecfr-toc-appendix ${sec.section_key === ecfrCurrentKey ? "current" : ""}"
+                <button class="ecfr-toc-appendix ${sec.section_key === ecfrCurrentKey ? "current" : ""}" data-key="${escAttr(sec.section_key)}"
                     title="${escAttr(label)}"
                     onclick="openEcfrSection(${escJs(sec.section_key)})">${esc(label)}</button>
                 ${ecfrStarHtml("section", sec.section_key)}
@@ -1575,7 +1595,8 @@ function ecfrTocSections(partData) {
 
         const label = ecfrSubpartLabel(g.heading, g.subpart);
         const hasFavChild = g.items.some(sec => ecfrFavKeys.has(sec.section_key));
-        return `<details class="ecfr-toc-subpart" ${g.items.some(i => i.section_key === ecfrCurrentKey) ? "open" : ""}>
+        return `<details class="ecfr-toc-subpart" data-subpart="${escAttr(`${partData.part.part}/${g.subpart}`)}"
+            ${g.items.some(i => i.section_key === ecfrCurrentKey) ? "open" : ""}>
             <summary title="${escAttr(label)}"
                 onclick="event.preventDefault(); ecfrSubpartClicked(this, ${escJs(partData.part.part)}, ${escJs(g.subpart)})">
                 <span class="ecfr-toc-subpart-label">${esc(label)}</span>
