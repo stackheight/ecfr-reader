@@ -475,7 +475,8 @@ function ecfrLayoutTimeline() {
     const inner = width - pad * 2;
     const xs = dates.map(d => pad + inner * (d - t0) / span);
     for (let i = 1; i < xs.length; i++) xs[i] = Math.max(xs[i], xs[i - 1] + ECFR_TICK_GAP);     // push right
-    for (let i = xs.length - 2; i >= 0; i--) xs[i] = Math.min(xs[i], xs[i + 1] - ECFR_TICK_GAP);  // pull the tail back in
+    xs[xs.length - 1] = Math.min(xs[xs.length - 1], width - pad);                               // the end stays on the rail…
+    for (let i = xs.length - 2; i >= 0; i--) xs[i] = Math.min(xs[i], xs[i + 1] - ECFR_TICK_GAP);  // …and the rest keep their gap
     const shift = Math.max(0, pad - xs[0]);
     ticks.forEach((t, i) => { t.style.left = `${(xs[i] + shift).toFixed(1)}px`; });
 }
