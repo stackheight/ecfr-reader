@@ -72,12 +72,16 @@ GitHub workflow.
   click a section to narrow back to one. The caret beside the heading just
   shows or hides its sections.
 - **Frames.** One to six side-by-side frames, each on a source: the local
-  snapshot, live text fetched from ecfr.gov, or the section as of a past
-  amendment. Drag to reorder.
+  snapshot (the eCFR as it stood on the day `fetch` ran — the eCFR has no
+  releases, it is amended continuously), live text fetched from ecfr.gov,
+  or the text as of any amendment date on the rail. A frame's source menu
+  lists exactly what the rail shows. Drag to reorder.
 - **Amendment history.** A labelled rail across the top of a section:
   every date ecfr.gov amended it (its history starts 2017), with Local and
-  Live on the same rail. Click a date to open that version in a frame
-  beside the one you are reading. With a whole subpart open the rail shows
+  Live on the same rail. Click a date (or pick it from a frame's source
+  menu) to open that version in a new frame beside the one you are reading;
+  its text is fetched from ecfr.gov once and kept in the local cache, and
+  the snapshot itself never changes. With a whole subpart open the rail shows
   every date any of its sections changed, and a dated frame holds the whole
   subpart as it stood that day (one request to ecfr.gov, like Live).
 - **Compare.** The reading pane's second tab (Read | Compare), fed by

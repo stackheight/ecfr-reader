@@ -144,13 +144,13 @@ function cmpVersionOptions() {
     const v = cmpVersions;
     if (v && v.versions) {
         v.versions.forEach(x => out.push({ id: `version:${x.date}`,
-            label: `${x.date} — ${x.sections ? `${x.sections.length} section${x.sections.length === 1 ? "" : "s"} amended` : "amended"}${
+            label: `As of ${x.date} — ${x.sections ? `${x.sections.length} section${x.sections.length === 1 ? "" : "s"} amended` : "amended"}${
                 x.substantive ? ", substantive" : ""}${x.removed ? ", removed" : ""}` }));
     }
     if (cmpKey) {
         const snap = (v && v.local_snapshot_date) || (typeof ecfrStatus !== "undefined" && ecfrStatus && ecfrStatus.snapshot_date);
-        out.push({ id: "local", label: `Local snapshot${snap ? ` (${snap})` : ""}` });
-        out.push({ id: "live", label: "Live ecfr.gov (today)" });
+        out.push({ id: "local", label: `Local snapshot — eCFR as of ${snap || "date unknown"}` });
+        out.push({ id: "live", label: "Live ecfr.gov — today" });
     }
     return out;
 }

@@ -628,7 +628,7 @@ body.ecfr-resizing { cursor: col-resize; user-select: none; }
    provenance beside it names again along with the exact version. Capped so it
    stops stealing width from the one label that carries information the other
    doesn't: the date. */
-.ecfr-frame-source { flex: 0 1 auto; max-width: 8.5rem; font-size: var(--fs-caption);
+.ecfr-frame-source { flex: 0 1 auto; max-width: 10rem; font-size: var(--fs-caption);
     padding: 2px 4px; }
 /* This must name the exact version on screen, never just the source — it's
    the whole reason a frame has a header. It gets the slack. */

@@ -327,7 +327,7 @@ function ecfrAccHtml(id, title, count, body) {
 const ECFR_SOURCES = {
     local: {
         name: "Local snapshot",
-        label: () => `Local snapshot (${(ecfrStatus && ecfrStatus.snapshot_date) || "date unknown"})`,
+        label: () => `Local snapshot — eCFR as of ${(ecfrStatus && ecfrStatus.snapshot_date) || "date unknown"}`,
         editable: true,
         persists: true,
         // Keyed like live, not a single global section. That symmetry is what
@@ -341,7 +341,7 @@ const ECFR_SOURCES = {
     },
     live: {
         name: "Live ecfr.gov",
-        label: (d) => (d && d.as_of) ? `Live ecfr.gov (as of ${d.as_of})` : "Live ecfr.gov",
+        label: (d) => (d && d.as_of) ? `Live ecfr.gov — as of ${d.as_of}` : "Live ecfr.gov — today",
         editable: true,
         persists: false,
         ensure: (key) => ecfrEnsureLiveData(key),
@@ -364,7 +364,7 @@ function ecfrVersionSource(date) {
     if (!ECFR_SOURCES[id]) {
         ECFR_SOURCES[id] = {
             name: `As of ${date}`,
-            label: () => `As of ${date}`,
+            label: () => `As of ${date} — fetched from ecfr.gov`,
             editable: true,
             persists: false,
             ensure: (key) => ecfrEnsureVersionData(date, key),
@@ -453,6 +453,7 @@ async function ecfrLoadVersions(key) {
         ecfrVersions = { key, error: err.message || "Couldn't load the version history." };
     }
     ecfrRenderTimeline();
+    ecfrRefreshFrameSelects();
 }
 
 // The subpart's history: every date ANY of its sections changed, from
@@ -475,6 +476,7 @@ async function ecfrLoadUnitVersions(unit) {
         ecfrVersions = { unitId, error: err.message || "Couldn't load the version history." };
     }
     ecfrRenderTimeline();
+    ecfrRefreshFrameSelects();
 }
 
 // The timeline for what's in focus — the subpart's history or the current
@@ -515,11 +517,12 @@ function ecfrRenderTimeline() {
     const showing = new Set(ecfrFrames.map(f => f.source));
     const tickHtml = ticks.map(t => {
         const label = t.kind === "local" ? "Local" : t.kind === "live" ? "Live" : t.date.slice(0, 7);
-        const title = (t.kind === "local" ? `Your local snapshot (${t.date})`
-            : t.kind === "live" ? `Live ecfr.gov (today, ${t.date})`
+        const title = (t.kind === "local" ? `Your local snapshot: the eCFR as it stood on ${t.date} (what \`ecfr_reader fetch\` downloaded)`
+            : t.kind === "live" ? `Live ecfr.gov: the text as it stands today, ${t.date}`
             : `Amended ${t.date}${t.issue && t.issue !== t.date ? ` (in effect ${t.issue})` : ""}${
                 t.sections ? ` — ${t.sections.length} section${t.sections.length === 1 ? "" : "s"}: ${t.sections.join(", ")}` : ""}${
-                t.removed ? " — removed" : t.substantive ? " — substantive" : ""}`) + " — click to open this version in a frame";
+                t.removed ? " — removed" : t.substantive ? " — substantive" : ""}`)
+            + " — click to open this version in a new frame beside this one (fetched from ecfr.gov once, then kept)";
         return `<button class="ecfr-tick ${t.kind} ${showing.has(t.id) ? "on" : ""} ${t.removed ? "removed" : ""}"
             data-date="${escAttr(t.date)}" title="${escAttr(title)}"
             onclick="ecfrOpenVersionFrame(${escJs(t.id)})">
@@ -529,7 +532,7 @@ function ecfrRenderTimeline() {
     el.innerHTML = `<div class="ecfr-timeline-caption">
             <span class="ecfr-timeline-title">Amendment history${unit ? ` — Subpart ${esc(ecfrUnit.subpart)}, whole subpart` : ""}</span>
             <span class="ecfr-timeline-note">${n} amendment${n === 1 ? "" : "s"} on record since 2017${
-                unit ? " across its sections" : ""} · click a date to open that version beside this one</span>
+                unit ? " across its sections" : ""} · click a date to open that version in a new frame beside this one — fetched from ecfr.gov once, then kept; or pick it from a frame's source menu</span>
             <span class="ecfr-timeline-legend"><i class="lg version"></i>amendment <i class="lg local"></i>Local <i class="lg live"></i>Live</span>
         </div>
         <div class="ecfr-timeline-rail">${tickHtml}</div>`;
@@ -654,9 +657,9 @@ function paintEcfrDashboard() {
     }
 
     html += `<div class="kpis">
-        <div class="kpi"><div class="kpi-label">Local Snapshot</div>
+        <div class="kpi" title="The eCFR as it stood on this date, downloaded by ecfr_reader fetch. The eCFR has no releases — it is amended continuously — so a snapshot is a picture taken on a day; fetch again to take a newer one."><div class="kpi-label">Local Snapshot</div>
             <div class="kpi-value">${esc(s.snapshot_date || "—")}</div>
-            <div class="kpi-sub">Title 40, parts ${esc(s.parts || "50-99")}</div></div>
+            <div class="kpi-sub">the eCFR as of that day · Title 40, parts ${esc(s.parts || "50-99")}</div></div>
         <div class="kpi"><div class="kpi-label">Sections &amp; Appendices</div>
             <div class="kpi-value">${(s.section_count || 0).toLocaleString()}</div>
             <div class="kpi-sub">across ${s.part_count || 0} parts</div></div>
@@ -1944,9 +1947,7 @@ function ecfrFrameHtml(frame, index) {
         ? `<p class="hint">${esc(frame.error)}</p>`
         : sections.map(sec => ecfrSectionHtml(sec, index, src)).join("");
 
-    const options = Object.keys(ECFR_SOURCES).map(id =>
-        `<option value="${escAttr(id)}" ${id === frame.source ? "selected" : ""}>
-            ${esc(ECFR_SOURCES[id].name)}</option>`).join("");
+    const options = ecfrFrameSourceOptions(frame);
 
     // Marks on this frame won't be saved — say so on the frame itself, where
     // the marks are, rather than in the shared toolbar which couldn't name a
@@ -1997,6 +1998,44 @@ function ecfrFrameHtml(frame, index) {
             ${bodyHtml}
         </div>
     </div>`;
+}
+
+// The source picker offers exactly what the rail above shows: the two
+// snapshots, then every amendment date on record for what's in focus. It
+// used to list only the sources already registered, so a date appeared in
+// it only after its tick had been clicked and then never left — the picker
+// looked arbitrary, and after a few sections it offered dates from other
+// rules' histories. The dates come from ecfrTimelineTicks, the rail's own
+// source of truth, so section and whole-subpart focus both work.
+function ecfrFrameSourceOptions(frame) {
+    const opt = (id, label) => `<option value="${escAttr(id)}" ${id === frame.source ? "selected" : ""}>${esc(label)}</option>`;
+    // Short labels: the picker is deliberately narrow and the provenance
+    // label beside it spells the version out in full.
+    let html = `<optgroup label="Snapshots">${opt("local", "Local snapshot")}${opt("live", "Live ecfr.gov")}</optgroup>`;
+    const v = ecfrVersions;
+    const ticks = ecfrTimelineTicks().filter(t => t.kind === "version");
+    let dated = ticks.map(t => opt(t.id, `As of ${t.date}${t.sections ? ` — ${t.sections.length} section${t.sections.length === 1 ? "" : "s"}` : ""}${
+        t.removed ? ", removed" : t.substantive ? ", substantive" : ""}`)).join("");
+    // A date this frame is on that the rail no longer lists (you moved to
+    // another section) stays selectable, so the header never names a version
+    // the picker doesn't show.
+    if (frame.source.startsWith("version:") && !ticks.some(t => t.id === frame.source)) {
+        dated += opt(frame.source, `As of ${frame.source.slice(8)} (another section's history)`);
+    }
+    if (!dated) {
+        dated = `<option disabled>${v && v.loading ? "amendment dates loading…"
+            : v && v.error ? "amendment dates unavailable" : "no amendments on record since 2017"}</option>`;
+    }
+    return html + `<optgroup label="Amendments on record">${dated}</optgroup>`;
+}
+
+// Rewrite each frame's picker in place when the rail's dates arrive — the
+// pane itself isn't re-rendered, so filled sections and annotators stay.
+function ecfrRefreshFrameSelects() {
+    ecfrFrames.forEach((f, i) => {
+        const sel = document.querySelector(`#ecfr-pane .ecfr-frame[data-frame="${i}"] .ecfr-frame-source`);
+        if (sel) sel.innerHTML = ecfrFrameSourceOptions(f);
+    });
 }
 
 // What you're reading, pinned at the top of the frame's scroll — with a whole
@@ -2172,6 +2211,7 @@ function ecfrRepaintNonUnitFrames() {
 
 async function ecfrSetFrameSource(index, source) {
     const frame = ecfrFrames[index];
+    if (source.startsWith("version:")) ecfrVersionSource(source.slice(8));   // a date from the picker: register it like a tick click
     if (!frame || !ECFR_SOURCES[source] || frame.source === source) return;
     frame.source = source;
     frame.error = null;

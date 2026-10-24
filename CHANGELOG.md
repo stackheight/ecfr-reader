@@ -26,6 +26,17 @@ are stacked one thing per line — the section, **Compare:** with the
 `--word-diff` and `--collapse`, then the Compare button — so a long
 section heading can't shove them around.
 
+A frame's source menu now lists exactly what the amendment rail shows —
+**Snapshots** (Local, Live) and **Amendments on record**, one per date —
+and fills in as the dates arrive. It used to offer a date only after its
+tick had been clicked, and then kept it for ever, so after a few sections
+it listed dates from other rules' histories. Labels say what things are:
+"Local snapshot — eCFR as of 2026-07-28", "Live ecfr.gov — today", "As of
+2024-03-08"; the rail's caption and tooltips say that a click opens a new
+frame whose text is fetched from ecfr.gov once and then kept, and the
+dashboard's snapshot tile explains that a snapshot is the eCFR as it stood
+on a day.
+
 Also: the Compare terminal stops typing its command one character at a
 time; the command and its output just appear. The macOS window buttons are
 gone from the title bar, and the `$` prompt is a two-line prompt in the
