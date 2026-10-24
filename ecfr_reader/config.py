@@ -17,7 +17,7 @@ import os
 
 from . import __version__
 
-REPO_URL = "https://github.com/SpottedHound/ecfr-reader"
+REPO_URL = "https://github.com/stackheight/ecfr-reader"
 DEFAULT_STATE = {"title": 40, "chapter": "I", "subchapter": "C", "parts": "50-99", "snapshot_date": None}
 
 

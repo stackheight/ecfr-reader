@@ -26,7 +26,7 @@ Python 3.10 or newer, with an `sqlite3` that has FTS5 (every python.org,
 distro and uv-managed interpreter does).
 
 ```bash
-git clone https://github.com/SpottedHound/ecfr-reader.git
+git clone https://github.com/stackheight/ecfr-reader.git
 cd ecfr-reader
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
