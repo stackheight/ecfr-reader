@@ -1834,10 +1834,11 @@ function ecfrRenderPaneNav() {
             title="Open another frame to compare versions side by side"
             onclick="ecfrAddFrame()">+ Add frame</button>`);
     }
-    // The Compare tab's copy of the same row. An empty third item keeps the
-    // next button where Read's sits, instead of sliding to the right edge.
+    // The Compare tab's copy of the same row. An invisible "+ Add frame" holds
+    // the right end so the next button sits exactly where Read's does.
     const cmp = document.getElementById("cmp-nav");
-    if (cmp) cmp.innerHTML = ecfrPaneNavHtml(`<span class="ecfr-nav-spacer"></span>`);
+    if (cmp) cmp.innerHTML = ecfrPaneNavHtml(`<button class="ecfr-btn ecfr-add-frame" style="visibility:hidden"
+            tabindex="-1" aria-hidden="true">+ Add frame</button>`);
 }
 
 // --- The pane's two tabs: Read and Compare ----------------------------

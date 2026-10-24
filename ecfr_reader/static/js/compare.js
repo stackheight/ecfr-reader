@@ -78,6 +78,7 @@ async function openEcfrCompare(key, a, b) {
 function cmpShellHtml() {
     return `<div class="cmp-screen">
         <div class="ecfr-pane-nav" id="cmp-nav"></div>
+        <div class="ecfr-timeline" id="cmp-caption"></div>
         <div class="cmp-controls" id="cmp-controls"></div>
         <div class="cmp-terminal">
             <div class="cmp-titlebar"><span class="cmp-title">ecfr-reader — compare</span></div>
@@ -116,17 +117,20 @@ function cmpRenderControls() {
         }</select></label>`;
     // Stacked, one thing per line, so a long section heading on the first
     // line can't push the controls under it around.
-    // Shaped like the Read tab's "Amendment history" caption: a small-caps
-    // title, what's being compared beside it, and an italic note under.
-    el.innerHTML = `
-        <div class="ecfr-timeline-caption cmp-section-line">
-            <span class="ecfr-timeline-title">Comparing</span>${section}</div>
-        <span class="ecfr-timeline-note cmp-note">${
+    // The caption is the Read tab's "Amendment history" block, same container
+    // and classes: a small-caps title, what's being compared beside it, and
+    // the italic note on its own line under them.
+    const cap = document.getElementById("cmp-caption");
+    if (cap) cap.innerHTML = `<div class="ecfr-timeline-caption">
+            <span class="ecfr-timeline-title">Comparing</span>${section}
+            <span class="ecfr-timeline-note cmp-note">${
             !cmpKey ? "pick a section in the contents, or a subpart heading for all of it" :
             v && v.loading ? "loading the amendment dates…" :
             v && v.error ? `amendment dates unavailable: ${esc(v.error)} — Local and Live still compare` :
             v && v.versions ? `${v.versions.length} amendment${v.versions.length === 1 ? "" : "s"} on record since 2017${
                 unit ? " across the subpart" : ""} · pick A (before) and B (after), then press Compare` : ""}</span>
+        </div>`;
+    el.innerHTML = `
         <div class="cmp-head">Compare:</div>
         <div class="cmp-row">${scope}</div>
         <div class="cmp-head">Options:</div>

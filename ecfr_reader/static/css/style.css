@@ -468,6 +468,8 @@ body.ecfr-resizing { cursor: col-resize; user-select: none; }
     overflow-x: auto; overflow-y: hidden; }
 .ecfr-timeline:empty { display: none; }
 .ecfr-timeline-rail { position: relative; height: 40px; margin: 14px 0 0; }
+.ecfr-timeline-rail::before { content: ""; position: absolute; left: 12px; right: 12px; top: 7px;
+    border-top: 2px solid var(--border-strong); }
 /* Leads drawn on the rail line itself: from a snapshot back to the amendment
    it holds. Amber dashes for Local, green dots for Live; the tick marks sit
    above them. */
@@ -832,8 +834,9 @@ body.ecfr-resizing { cursor: col-resize; user-select: none; }
 .cmp-field > span { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
     color: var(--text-2); }
 .cmp-select { max-width: none; min-width: 13rem; font-size: var(--fs-small); padding: 5px 8px; }
-.cmp-section-line { font-size: var(--fs-small); color: var(--text-2); gap: 10px; padding-top: 0; }
-.cmp-note { display: block; margin-top: -2px; }
+.cmp-chosen { font-size: var(--fs-small); color: var(--text-2); }
+.cmp-note { flex-basis: 100%; }         /* its own line, as Read's long note wraps to */
+.cmp-controls { padding-top: 8px; }
 .cmp-head { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
     color: var(--text-2); margin-top: 4px; }
 .cmp-head + .cmp-row { margin-top: -2px; }
