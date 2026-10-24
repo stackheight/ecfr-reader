@@ -85,6 +85,16 @@ CREATE INDEX IF NOT EXISTS idx_ecfr_sections_part ON ecfr_sections(part, order_i
 -- This lands ONLY on re-import: import_corpus.py builds a fresh .tmp db from
 -- this SCHEMA and os.replace()s it. An existing ecfr.db never gains the table,
 -- which is why the search route 503s with an import hint instead of 500ing.
+-- Answers from ecfr.gov the reader may keep: a section's version list
+-- (24 h) and its text as of a past date (for ever — a past version never
+-- changes). Rebuilt empty by an import; created on first use for a corpus
+-- imported before it existed.
+CREATE TABLE IF NOT EXISTS ecfr_cache (
+    key TEXT PRIMARY KEY,
+    fetched_at TEXT NOT NULL,
+    value TEXT NOT NULL
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS ecfr_fts USING fts5(
     section_key UNINDEXED,
     part UNINDEXED,
@@ -134,6 +144,37 @@ def read_meta() -> dict:
 def write_meta(**kv) -> None:
     with ecfr_db() as conn:
         set_meta(conn, **kv)
+        conn.commit()
+
+
+CACHE_DDL = """CREATE TABLE IF NOT EXISTS ecfr_cache (
+    key TEXT PRIMARY KEY, fetched_at TEXT NOT NULL, value TEXT NOT NULL)"""
+
+
+def cache_get(key: str, max_age_s: float = None):
+    """The cached JSON value under `key`, or None when absent or older
+    than max_age_s (None = never expires)."""
+    import json
+    from datetime import datetime, timezone
+    with ecfr_db() as conn:
+        conn.execute(CACHE_DDL)
+        row = conn.execute("SELECT fetched_at, value FROM ecfr_cache WHERE key = ?", (key,)).fetchone()
+    if not row:
+        return None
+    if max_age_s is not None:
+        age = datetime.now(timezone.utc) - datetime.fromisoformat(row["fetched_at"])
+        if age.total_seconds() > max_age_s:
+            return None
+    return json.loads(row["value"])
+
+
+def cache_put(key: str, value) -> None:
+    import json
+    from datetime import datetime, timezone
+    with ecfr_db() as conn:
+        conn.execute(CACHE_DDL)
+        conn.execute("INSERT OR REPLACE INTO ecfr_cache (key, fetched_at, value) VALUES (?, ?, ?)",
+                     (key, datetime.now(timezone.utc).isoformat(), json.dumps(value)))
         conn.commit()
 
 

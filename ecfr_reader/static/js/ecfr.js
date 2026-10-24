@@ -342,6 +342,176 @@ const ECFR_SOURCES = {
     },
 };
 
+// --- Dated versions ---------------------------------------------------
+// A frame can show a section as it stood on any date ecfr.gov holds (its
+// point-in-time history starts 2017-01-01). Each date becomes a source of
+// its own, "version:<date>", registered here the first time it's asked for
+// — so the frame machinery, the picker and the annotator (scratch, like
+// live) all work on it unchanged. The text arrives from /api/ecfr/section/at,
+// one request per section and date, cached for ever on the server.
+let ecfrVersionCache = {};        // date -> { section_key -> payload }
+
+function ecfrVersionSource(date) {
+    const id = `version:${date}`;
+    if (!ECFR_SOURCES[id]) {
+        ECFR_SOURCES[id] = {
+            name: `As of ${date}`,
+            label: () => `As of ${date}`,
+            editable: true,
+            persists: false,
+            single: true,         // no unit endpoint for a date: one section per frame, one request each
+            ensure: (key) => ecfrEnsureVersion(date, key),
+            data: (key) => (ecfrVersionCache[date] || {})[key] || null,
+        };
+    }
+    return id;
+}
+
+let ecfrVersionFetches = {};      // "date|key" -> in-flight promise (the frame loader and the
+                                  // scroll observer can ask for the same text in one tick)
+
+async function ecfrEnsureVersion(date, key) {
+    const have = (ecfrVersionCache[date] || {})[key];
+    if (have) return have;
+    const id = `${date}|${key}`;
+    if (!ecfrVersionFetches[id]) {
+        ecfrVersionFetches[id] = (async () => {
+            const params = new URLSearchParams({ key, date });
+            const res = await fetch(`${API_BASE}/api/ecfr/section/at?${params.toString()}`);
+            const d = await res.json();
+            if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+            (ecfrVersionCache[date] = ecfrVersionCache[date] || {})[key] = d;
+            return d;
+        })().finally(() => { delete ecfrVersionFetches[id]; });
+    }
+    return ecfrVersionFetches[id];
+}
+
+// --- The timeline ----------------------------------------------------
+// Across the top of the pane: every date ecfr.gov amended the open section,
+// plus Local (the snapshot) and Live (today) on the same rail. A click reads
+// what that amendment changed (B = the tick, A = the tick before it);
+// shift-click sets A, so any two can be paired.
+let ecfrVersions = null;          // {key, versions:[{date,…}], latest, local_snapshot_date} | {key, error}
+let ecfrDiffSel = { a: null, b: null };   // source ids ("local", "live", "version:<date>") or null
+
+async function ecfrLoadVersions(key) {
+    ecfrVersions = { key, loading: true };
+    ecfrRenderTimeline();
+    try {
+        const res = await fetch(`${API_BASE}/api/ecfr/section/versions?key=${encodeURIComponent(key)}`);
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+        if (ecfrCurrentKey !== key) return;
+        ecfrVersions = { key, ...d };
+    } catch (err) {
+        if (ecfrCurrentKey !== key) return;
+        ecfrVersions = { key, error: err.message || "Couldn't load the version history." };
+    }
+    ecfrRenderTimeline();
+}
+
+function ecfrTimelineTicks() {
+    const v = ecfrVersions;
+    if (!v || !v.versions) return [];
+    const today = new Date().toISOString().slice(0, 10);
+    const ticks = v.versions.map(x => ({ id: `version:${x.date}`, date: x.date, kind: "version",
+        substantive: x.substantive, removed: x.removed, issue: x.issue_date }));
+    const local = v.local_snapshot_date || (ecfrStatus && ecfrStatus.snapshot_date);
+    if (local) ticks.push({ id: "local", date: local, kind: "local" });
+    ticks.push({ id: "live", date: today, kind: "live" });
+    ticks.sort((p, q) => p.date < q.date ? -1 : p.date > q.date ? 1 : (p.kind === "version" ? -1 : 1));
+    return ticks;
+}
+
+function ecfrRenderTimeline() {
+    const el = document.getElementById("ecfr-timeline");
+    if (!el) return;
+    const v = ecfrVersions;
+    if (!v || v.key !== ecfrCurrentKey) { el.innerHTML = ""; return; }
+    if (v.loading) { el.innerHTML = `<span class="ecfr-timeline-note">Loading the version history…</span>`; return; }
+    if (v.error) { el.innerHTML = `<span class="ecfr-timeline-note">Version history unavailable: ${esc(v.error)}</span>`; return; }
+    const ticks = ecfrTimelineTicks();
+    if (!ticks.length) { el.innerHTML = ""; return; }
+    const tickHtml = ticks.map(t => {
+        const role = ecfrDiffSel.a === t.id ? "a" : ecfrDiffSel.b === t.id ? "b" : "";
+        const label = t.kind === "local" ? "Local" : t.kind === "live" ? "Live" : t.date.slice(0, 7);
+        const title = t.kind === "local" ? `Your local snapshot (${t.date})`
+            : t.kind === "live" ? `Live ecfr.gov (today, ${t.date})`
+            : `Amended ${t.date}${t.issue && t.issue !== t.date ? ` (in effect ${t.issue})` : ""}${
+                t.removed ? " — removed" : t.substantive ? " — substantive" : ""}`;
+        return `<button class="ecfr-tick ${t.kind} ${role} ${t.removed ? "removed" : ""}"
+            data-date="${escAttr(t.date)}" title="${escAttr(title)}"
+            onclick="ecfrTimelineClick(event, ${escJs(t.id)})">${
+            role ? `<span class="ecfr-tick-role">${role.toUpperCase()}</span>` : `<span class="ecfr-tick-role"></span>`}
+            <span class="ecfr-tick-mark"></span><span class="ecfr-tick-label">${esc(label)}</span></button>`;
+    }).join("");
+    const n = v.versions.length;
+    el.innerHTML = `<div class="ecfr-timeline-rail">${tickHtml}</div>
+        <div class="ecfr-timeline-note">${n} amendment${n === 1 ? "" : "s"} since ecfr.gov's history begins ·
+        click a date to read what it changed (against the version before it) · shift-click to set the A side</div>`;
+    ecfrLayoutTimeline();
+}
+
+// Ticks sit where their dates fall along the rail, but never closer than a
+// label's width: a run of amendments weeks apart on a ten-year rail would
+// otherwise print on top of each other. Pixels, measured, so the minimum
+// gap is real; the rail grows (and scrolls) when the ticks need more room.
+const ECFR_TICK_GAP = 64;
+
+function ecfrLayoutTimeline() {
+    const rail = document.querySelector("#ecfr-timeline .ecfr-timeline-rail");
+    if (!rail) return;
+    const ticks = [...rail.querySelectorAll(".ecfr-tick")];
+    if (!ticks.length) return;
+    const dates = ticks.map(t => Date.parse(t.dataset.date));
+    const t0 = dates[0], span = Math.max(dates[dates.length - 1] - t0, 1);
+    const pad = ECFR_TICK_GAP / 2;
+    const need = pad * 2 + (ticks.length - 1) * ECFR_TICK_GAP;
+    const box = rail.parentElement, cs = getComputedStyle(box);
+    const avail = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const width = Math.max(avail, need);           // wider than the box only when the ticks need it
+    rail.style.width = `${width}px`;
+    const inner = width - pad * 2;
+    const xs = dates.map(d => pad + inner * (d - t0) / span);
+    for (let i = 1; i < xs.length; i++) xs[i] = Math.max(xs[i], xs[i - 1] + ECFR_TICK_GAP);     // push right
+    for (let i = xs.length - 2; i >= 0; i--) xs[i] = Math.min(xs[i], xs[i + 1] - ECFR_TICK_GAP);  // pull the tail back in
+    const shift = Math.max(0, pad - xs[0]);
+    ticks.forEach((t, i) => { t.style.left = `${(xs[i] + shift).toFixed(1)}px`; });
+}
+
+window.addEventListener("resize", () => { clearTimeout(window._ecfrTlResize);
+    window._ecfrTlResize = setTimeout(ecfrLayoutTimeline, 120); });
+
+// The id of the tick before `id` on the rail, or null (the first one).
+function ecfrTickBefore(id) {
+    const ticks = ecfrTimelineTicks();
+    const i = ticks.findIndex(t => t.id === id);
+    return i > 0 ? ticks[i - 1].id : null;
+}
+
+function ecfrTimelineClick(event, id) {
+    if (event && event.shiftKey) {
+        ecfrApplyDiffPair(id, ecfrDiffSel.b || id === "live" ? ecfrDiffSel.b : "live");
+        return;
+    }
+    ecfrApplyDiffPair(ecfrTickBefore(id), id);
+}
+
+// Show B (and A, when there is one) as the frames, with the changes marked
+// up in B. A null A shows B alone: the earliest version has nothing before it.
+async function ecfrApplyDiffPair(a, b) {
+    if (!b) return;
+    const frameFor = id => ({ source: id.startsWith("version:") ? ecfrVersionSource(id.slice(8)) : id });
+    ecfrDiffSel = { a: a || null, b };
+    ecfrFrames = a && a !== b ? [frameFor(a), frameFor(b)] : [frameFor(b)];
+    ecfrDiffMode = !!(a && a !== b);
+    renderEcfrReader();
+    ecfrRenderTimeline();
+    syncHash(true);
+    await ecfrLoadFrames();
+}
+
 // One entry per open frame. The layout persists across section navigation.
 // More than two is the point: three frames sit at ~2.5 visible and the row
 // scrolls horizontally, so versions can be lined up side by side.
@@ -365,6 +535,14 @@ let ecfrDiffMode = false;
 function ecfrDiffPair() {
     if (!ecfrCurrentKey) return null;
     const key = ecfrCurrentKey;
+    const ready = f => f && !f.loading && ECFR_SOURCES[f.source] && ECFR_SOURCES[f.source].data(key);
+    if (ecfrDiffSel.a && ecfrDiffSel.b) {
+        const ia = ecfrFrames.findIndex(f => f.source === ecfrDiffSel.a);
+        const ib = ecfrFrames.findIndex(f => f.source === ecfrDiffSel.b);
+        if (ia >= 0 && ib >= 0 && ia !== ib) {
+            return (ready(ecfrFrames[ia]) && ready(ecfrFrames[ib])) ? [ia, ib] : null;
+        }
+    }
     // `persists`, not `editable`: since round 4 a live frame is editable too,
     // so `!editable` matches nothing and the diff would silently never offer
     // itself. What actually distinguishes the two sides is which one we store.
@@ -375,8 +553,47 @@ function ecfrDiffPair() {
     return (localIdx >= 0 && liveIdx >= 0) ? [localIdx, liveIdx] : null;
 }
 
+// Collapse unchanged paragraphs in a diff (the checkbox on the diff frame).
+// Remembered per browser so the choice holds across sections and reloads.
+let ecfrDiffCollapse = (() => { try { return localStorage.getItem("ecfr.diffCollapse") !== "0"; } catch (e) { return true; } })();
+let ecfrDiffPos = {};             // frame index -> the change currently stepped to
+
+function ecfrSetDiffCollapse(on) {
+    ecfrDiffCollapse = !!on;
+    try { localStorage.setItem("ecfr.diffCollapse", on ? "1" : "0"); } catch (e) { /* private mode */ }
+    ecfrDiffPos = {};
+    renderEcfrPane();             // the diff frame re-renders from the cached blocks; nothing is refetched
+}
+
+function ecfrDiffStep(index, delta) {
+    const body = document.querySelector(`#ecfr-pane .ecfr-frame[data-frame="${index}"] .ecfr-frame-body`);
+    if (!body) return;
+    const changes = [...body.querySelectorAll(".ecfr-diff-change")];
+    if (!changes.length) return;
+    const cur = ecfrDiffPos[index];
+    let next = cur == null ? (delta > 0 ? 0 : changes.length - 1) : cur + delta;
+    next = (next + changes.length) % changes.length;
+    ecfrDiffPos[index] = next;
+    changes.forEach(c => c.classList.remove("focus"));
+    const target = changes[next];
+    const fold = target.closest("details.ecfr-diff-fold");
+    if (fold) fold.open = true;
+    target.classList.add("focus");
+    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    const pos = document.getElementById(`ecfr-diff-pos-${index}`);
+    if (pos) pos.textContent = `${next + 1} / ${changes.length}`;
+}
+
 function ecfrCanDiff() {
     return ecfrDiffPair() !== null;
+}
+
+// The timeline's pair is chosen and both frames exist, but one is still
+// loading its text — the diff is coming, not impossible.
+function ecfrDiffPending() {
+    if (!ecfrDiffSel.a || !ecfrDiffSel.b) return false;
+    const has = id => ecfrFrames.some(f => f.source === id);
+    return has(ecfrDiffSel.a) && has(ecfrDiffSel.b);
 }
 
 function ecfrToggleDiff() {
@@ -770,6 +987,7 @@ async function ecfrSetCurrentSection(key, opts = {}) {
 // The per-section extra: its annotations. Kept out of the unit fetch
 // because they follow the section you're reading, not the unit you loaded.
 async function ecfrLoadSectionSidecars(key) {
+    if (!ecfrVersions || ecfrVersions.key !== key) ecfrLoadVersions(key);   // in parallel; it paints itself
     const annRes = await fetch(`${API_BASE}/api/ecfr/annotations?scope=section&key=${encodeURIComponent(key)}`)
         .catch(() => null);
     if (ecfrCurrentKey !== key) return;         // a faster scroll won
@@ -930,6 +1148,11 @@ async function ecfrLoadFrames() {
     // ecfrCanDiff() was still false.
     ecfrRenderPaneNav();
     ecfrRefreshProvenance();
+    // An armed diff whose pair has just become readable: paint it now (the
+    // frame bodies were filled with plain text as they arrived).
+    if (ecfrDiffMode && ecfrCanDiff() && !document.querySelector("#ecfr-pane .ecfr-frame-body.diffing")) {
+        renderEcfrPane();
+    }
 }
 
 // A frame header must name the exact version on screen, never just the source
@@ -1480,9 +1703,11 @@ function renderEcfrPane() {
     }
     el.innerHTML = `
         <div class="ecfr-pane-nav" id="ecfr-pane-nav"></div>
+        <div class="ecfr-timeline" id="ecfr-timeline"></div>
         <div class="ecfr-toolbar" id="ecfr-toolbar"></div>
         <div class="ecfr-frames" data-count="${ecfrFrames.length}">${
             ecfrFrames.map((f, i) => ecfrFrameHtml(f, i)).join("")}</div>`;
+    ecfrRenderTimeline();
 
     // Put the reader back where it was BEFORE anything can observe the fresh
     // DOM. A re-render (add a frame, change a source, toggle diff) rebuilds
@@ -1496,7 +1721,9 @@ function renderEcfrPane() {
     // Eligibility can vanish under an armed toggle — close the live frame,
     // navigate to a section with no upstream text — so re-check every render
     // rather than trusting the flag.
-    if (ecfrDiffMode && !ecfrCanDiff()) ecfrDiffMode = false;
+    // …unless the pair is simply still arriving: the timeline arms the diff
+    // before the dated text lands, and ecfrLoadFrames re-renders when it has.
+    if (ecfrDiffMode && !ecfrCanDiff() && !ecfrDiffPending()) ecfrDiffMode = false;
 
     ecfrRenderPaneNav();
     ecfrRenderToolbar();
@@ -1550,7 +1777,8 @@ function ecfrSectionHtml(sec, frameIndex, src, isDiffFrame, pair) {
     } else if (isDiffFrame) {
         const localSrc = ECFR_SOURCES[ecfrFrames[pair[0]].source];
         const localData = localSrc.data(key);
-        inner = ecfrDiffHtml((localData && localData.blocks) || [], data.blocks || []);
+        inner = ecfrDiffHtml((localData && localData.blocks) || [], data.blocks || [],
+                             { collapse: ecfrDiffCollapse, frameIndex });
     } else {
         inner = "";       // filled by the observer; see ecfrFillSection
     }
@@ -1595,7 +1823,7 @@ function ecfrFrameHtml(frame, index) {
     // fall back to per-section fetching, so a live frame shows only what
     // you're reading rather than firing one request per loose section.
     const liveUnitFetchable = !!(ecfrUnit && ecfrUnit.subpart);
-    const unitFrame = src.persists !== false || liveUnitFetchable;
+    const unitFrame = (src.persists !== false || liveUnitFetchable) && !src.single;
     const sections = unitFrame
         ? ecfrUnitSections
         : ecfrUnitSections.filter(s => s.section_key === ecfrCurrentKey);
@@ -1639,6 +1867,7 @@ function ecfrFrameHtml(frame, index) {
     const action = ecfrFrames.length === 1
         ? `<button class="ecfr-btn" onclick="ecfrToggleCompare()" title="Open a second frame to compare versions">Compare</button>`
         : `<button class="ecfr-annot-x" title="Close this frame" onclick="ecfrCloseFrame(${index})">✕</button>`;
+
 
     // draggable on the HEAD only: the body has to stay selectable, since
     // selecting text is how you annotate it.

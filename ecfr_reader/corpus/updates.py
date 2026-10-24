@@ -143,6 +143,29 @@ def _parts_scope(parts_spec: str) -> set:
     return out
 
 
+def section_versions(part: str, identifier: str, is_appendix: bool = False, title: int = TITLE) -> dict:
+    """The dates ecfr.gov amended one section (its point-in-time history,
+    from 2017-01-01 on): {"versions": [{date, issue_date, substantive,
+    removed}, …] ascending, one per date, "latest": the latest amendment
+    date}. One request. `date` is the amendment date — the day the text
+    changed — which is what the reader's timeline shows."""
+    params = {"part": part, ("appendix" if is_appendix else "section"): identifier}
+    d = _get(f"/versions/title-{title}.json", params)
+    by_date = {}
+    for v in d.get("content_versions") or []:
+        date = v.get("date") or v.get("amendment_date")
+        if not date:
+            continue
+        cur = by_date.setdefault(date, {"date": date, "issue_date": v.get("issue_date"),
+                                        "substantive": False, "removed": False})
+        cur["substantive"] = cur["substantive"] or bool(v.get("substantive"))
+        cur["removed"] = cur["removed"] or bool(v.get("removed"))
+    versions = [by_date[k] for k in sorted(by_date)]
+    meta = d.get("meta") or {}
+    return {"versions": versions,
+            "latest": meta.get("latest_amendment_date") or (versions[-1]["date"] if versions else None)}
+
+
 def latest_title_date(title: int = TITLE) -> str:
     data = _get("/titles.json")
     for entry in data.get("titles", []):

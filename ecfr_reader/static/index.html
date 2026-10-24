@@ -6,8 +6,8 @@
     <title>ecfr-reader</title>
     <!-- The annotator's own sheet first: it sets a few globals
          (::selection, overscroll) that the app's styles override. -->
-    <link rel="stylesheet" href="vendor/text-annotator/text-annotator.css">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="vendor/text-annotator/text-annotator.css?v={{v}}">
+    <link rel="stylesheet" href="css/style.css?v={{v}}">
     <script>try{var _t=localStorage.getItem('theme');document.documentElement.dataset.theme=(_t==='dark')?'dark':'light';}catch(e){document.documentElement.dataset.theme='light';}</script>
 </head>
 <body>
@@ -30,9 +30,9 @@
          without it createTextAnnotator() throws and nothing annotates. -->
     <script>window.process = window.process || { env: { NODE_ENV: "production" } };</script>
     <script src="vendor/text-annotator/text-annotator.umd.js"></script>
-    <script src="js/app.js"></script>
-    <script src="js/ecfr-annotator.js"></script>
-    <script src="js/ecfr-diff.js"></script>
-    <script src="js/ecfr.js"></script>
+    <script src="js/app.js?v={{v}}"></script>
+    <script src="js/ecfr-annotator.js?v={{v}}"></script>
+    <script src="js/ecfr-diff.js?v={{v}}"></script>
+    <script src="js/ecfr.js?v={{v}}"></script>
 </body>
 </html>

@@ -41,3 +41,9 @@ def test_live_routes_need_a_contact(client):
     assert r.status_code == 502 and "ECFR_CONTACT" in r.get_json()["error"]
     r = client.get("/api/ecfr/updates?force=1")
     assert r.status_code == 502 and "ECFR_CONTACT" in r.get_json()["error"]
+
+
+def test_the_page_stamps_the_version_into_its_asset_links(empty_client):
+    from ecfr_reader import __version__
+    html = empty_client.get("/").get_data(as_text=True)
+    assert f'src="js/ecfr.js?v={__version__}"' in html and "{{v}}" not in html

@@ -5,7 +5,7 @@ import os
 
 from flask import Flask, send_from_directory
 
-from . import config
+from . import __version__, config
 from .annotations import init_db
 from .api import bp
 
@@ -20,6 +20,10 @@ def create_app():
 
     @app.route("/")
     def index():
-        return send_from_directory(STATIC, "index.html")
+        # The page's script and stylesheet links carry the version, so a
+        # browser that cached the previous release's files fetches the new
+        # ones after an upgrade instead of running stale code.
+        with open(os.path.join(STATIC, "index.html"), encoding="utf-8") as f:
+            return f.read().replace("{{v}}", __version__), 200, {"Content-Type": "text/html; charset=utf-8"}
 
     return app

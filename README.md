@@ -12,6 +12,8 @@ State-level regulations maybe added in the future where practicable.
 
 ![The reader](docs/screenshot.png)
 
+![What an amendment changed](docs/screenshot-timeline.png)
+
 Built for air-permitting work (Title 40, parts 50–99: the Clean Air Act
 programs), but the corpus tools take any part range in Title 40.
 
@@ -64,8 +66,14 @@ GitHub workflow.
   unit at the top and bottom.
 - **Frames.** One to six side-by-side frames, each on a source: the local
   snapshot, or live text fetched from ecfr.gov. Drag to reorder.
-- **Diff.** When a local and a live frame show the same section, a diff
-  mode marks the words that changed since your snapshot.
+- **Timeline.** Across the top of a section: every date ecfr.gov amended
+  it, with Local and Live on the same rail. Click a date to read what that
+  amendment changed; shift-click to pair any two dates. A comparison is a
+  link you can send.
+- **Diff.** Changed paragraphs in full with the changed words marked;
+  unchanged paragraphs fold to a strip (a checkbox unfolds them); a sticky
+  strip counts the changes and steps through them. Tables are flagged
+  whole rather than diffed cell by cell.
 - **Marks.** A toolbar in the PDF-editor idiom: highlight in four colours,
   underline, strike, an eraser, undo / redo, and a comment on any mark.
   Marks on live frames are scratch and never saved. A mark whose text has
@@ -114,6 +122,8 @@ Everything the page uses is plain JSON under `/api/ecfr/`:
 | `GET /toc`, `GET /toc/<part>`                             | the parts; one part's subparts and sections                |
 | `GET /unit?part=&subpart=` (or `&appendix=`, or neither)  | every section of one division, with its text blocks        |
 | `GET /unit/live?part=&subpart=`, `GET /section/live?key=` | the same from ecfr.gov, as of its current issue            |
+| `GET /section/versions?key=` | the dates ecfr.gov amended the section (cached a day; `?force=1`) |
+| `GET /section/at?key=&date=` | the section as of a date (cached for ever) |
 | `GET /search?q=&part=&limit=&offset=`                     | full-text search                                           |
 | `GET /updates[?force=1]`                                  | the notify-only update check (cached 24 h)                 |
 | `GET /annotations?scope=&key=`                            | notes and marks at a scope, with counts per scope          |
@@ -136,6 +146,14 @@ never touch ecfr.gov or your data. The GitHub workflow runs them on Python
 The frontend is three classic scripts and one stylesheet with no build
 step; the text-annotation engine is the vendored UMD build of
 [@recogito/text-annotator](https://github.com/recogito/text-annotator-js).
+
+## Roadmap
+
+- **A git-backed archive.** `ecfr-reader snapshot` would render every
+  section to one text file (one paragraph per line) and commit the set
+  into `data/history/` under its issue date, so `git log -p` and
+  `git blame` tell a section's story from the command line. It shares the
+  renderer with the import; the in-app timeline came first.
 
 ## Limitations
 

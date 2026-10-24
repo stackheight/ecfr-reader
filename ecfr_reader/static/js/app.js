@@ -66,7 +66,13 @@ function wsGlyph(key) {
 let _restoringHash = false;
 
 function _stateHash() {
-    return ecfrCurrentKey ? `#ecfr/read/${encodeURIComponent(ecfrCurrentKey)}` : "#ecfr";
+    if (!ecfrCurrentKey) return "#ecfr";
+    let h = `#ecfr/read/${encodeURIComponent(ecfrCurrentKey)}`;
+    // a comparison is a link: #ecfr/read/<key>/diff/<A>..<B>
+    if (typeof ecfrDiffMode !== "undefined" && ecfrDiffMode && ecfrDiffSel.a && ecfrDiffSel.b) {
+        h += `/diff/${encodeURIComponent(ecfrDiffSel.a)}..${encodeURIComponent(ecfrDiffSel.b)}`;
+    }
+    return h;
 }
 
 function syncHash(push) {
@@ -102,7 +108,18 @@ async function restoreFromHash() {
     try {
         const parts = location.hash.replace(/^#/, "").split("/");
         if (parts[0] === "ecfr" && parts[1] === "read" && parts[2]) {
+            const diff = parts[3] === "diff" && parts[4] && parts[4].includes("..");
+            if (!diff && typeof ecfrDiffSel !== "undefined") {
+                // a plain section link means "no comparison": drop an armed one,
+                // or syncHash would write the old pair straight back into the hash
+                ecfrDiffMode = false;
+                ecfrDiffSel = { a: null, b: null };
+            }
             await openEcfrSection(decodeURIComponent(parts[2]));
+            if (diff) {
+                const [sa, sb] = parts[4].split("..").map(decodeURIComponent);
+                await ecfrApplyDiffPair(sa, sb);
+            }
         } else {
             await renderEcfrDashboard();
         }

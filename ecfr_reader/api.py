@@ -157,6 +157,79 @@ def ecfr_section_live():
     return jsonify(rendered)
 
 
+@bp.route("/api/ecfr/section/versions", methods=["GET"])
+def ecfr_section_versions():
+    """The dates ecfr.gov amended this section — the reader's timeline.
+    Cached 24 h (a section can be amended tomorrow); ?force=1 refetches."""
+    from .corpus.store import cache_get, cache_put, corpus_exists, get_section_locator, read_meta
+    from .corpus.updates import EcfrApiError, section_versions
+
+    if not corpus_exists():
+        return _ecfr_unavailable()
+    key = request.args.get("key", "")
+    if not key:
+        return jsonify({"error": "key is required"}), 400
+    row = get_section_locator(key)
+    if not row:
+        return jsonify({"error": f"Section {key!r} not found"}), 404
+    force = request.args.get("force") == "1"
+    cache_key = f"versions:{key}"
+    result = None if force else cache_get(cache_key, max_age_s=24 * 3600)
+    cached = result is not None
+    if result is None:
+        try:
+            result = section_versions(row["part"], row["identifier"], is_appendix=(row["type"] == "appendix"))
+        except EcfrApiError as e:
+            return jsonify({"error": str(e)}), 502
+        cache_put(cache_key, result)
+    return jsonify({"section_key": key, "versions": result["versions"], "latest": result.get("latest"),
+                    "local_snapshot_date": read_meta().get("snapshot_date"), "cached": cached})
+
+
+@bp.route("/api/ecfr/section/at", methods=["GET"])
+def ecfr_section_at():
+    """One section as it stood on a date — the /section/live payload shape
+    with as_of = that date. Cached for ever: a past version never changes."""
+    import re as _re
+    from datetime import date as _date
+    from bs4 import BeautifulSoup
+    from .corpus.render import render_standalone
+    from .corpus.store import cache_get, cache_put, corpus_exists, get_section_locator
+    from .corpus.updates import EcfrApiError, fetch_full_xml
+
+    if not corpus_exists():
+        return _ecfr_unavailable()
+    key = request.args.get("key", "")
+    when = (request.args.get("date") or "").strip()
+    if not key:
+        return jsonify({"error": "key is required"}), 400
+    if not _re.fullmatch(r"\d{4}-\d{2}-\d{2}", when):
+        return jsonify({"error": "date must be YYYY-MM-DD"}), 400
+    try:
+        if _date.fromisoformat(when) > _date.today():
+            return jsonify({"error": "date is in the future"}), 400
+    except ValueError:
+        return jsonify({"error": "date must be a real calendar date"}), 400
+    row = get_section_locator(key)
+    if not row:
+        return jsonify({"error": f"Section {key!r} not found"}), 404
+    cache_key = f"at:{key}:{when}"
+    rendered = cache_get(cache_key)
+    if rendered is None:
+        try:
+            xml = fetch_full_xml(when, row["part"], row["identifier"], is_appendix=(row["type"] == "appendix"))
+            rendered = render_standalone(BeautifulSoup(xml, "lxml-xml"))
+            if rendered is None:
+                raise EcfrApiError(f"ecfr.gov returned no content for {key} as of {when}.")
+        except EcfrApiError as e:
+            return jsonify({"error": str(e)}), 502
+        rendered["section_key"] = key
+        rendered["part"] = row["part"]
+        rendered["as_of"] = when
+        cache_put(cache_key, rendered)
+    return jsonify(rendered)
+
+
 # Widest to narrowest. The reader's panel narrows automatically as you walk
 # down the tree, so the order matters to the UI as well as to the buckets.
 ECFR_SCOPES = ("title", "part", "subpart", "section")
