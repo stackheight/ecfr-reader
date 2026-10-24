@@ -568,6 +568,9 @@ body.ecfr-resizing { cursor: col-resize; user-select: none; }
 .ecfr-toc-appendix.current { background: var(--accent-tint); color: var(--accent);
     font-weight: 700; }
 
+/* "Check for updates" sits on its own line directly over the card that
+   shows the result, so the two read as one thing. */
+.ecfr-update-toolbar { margin-top: 18px; margin-bottom: 8px; }
 .ecfr-empty { display: flex; align-items: center; justify-content: center; height: 100%; }
 .ecfr-pane-nav { display: flex; justify-content: space-between; gap: 12px; flex: none;
     padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border);

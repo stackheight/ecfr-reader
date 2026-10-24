@@ -730,9 +730,11 @@ function paintEcfrDashboard() {
     </div>
     <div class="home-toolbar">
         <button class="btn btn-primary" onclick="openEcfrReader()">Browse Title 40 →</button>
-        <button class="rerun-link" onclick="ecfrCheckUpdates(true)" id="ecfr-check-btn">Check for updates</button>
         <span class="hint" style="margin-left:auto;">Notify-only — refreshing the corpus is a manual
             script run (<code>ecfr-reader fetch, then ecfr-reader import</code>), never automatic.</span>
+    </div>
+    <div class="home-toolbar ecfr-update-toolbar">
+        <button class="btn" onclick="ecfrCheckUpdates(true)" id="ecfr-check-btn">Check for updates</button>
     </div>`;
 
     html += ecfrUpdateCardHtml(s);
@@ -1885,11 +1887,7 @@ function ecfrRenderPaneTabs() {
         tab("read", "Read", "The section's text, in frames")}${
         tab("compare", "Compare", ecfrUnitFocused() ? "Two versions of the whole subpart, as a diff"
                                                     : "Two versions of this section, as a diff")}</nav>
-        <span class="ecfr-pane-tabs-hint">${ecfrPaneTab === "compare"
-            ? (!ecfrCurrentKey ? "pick a section in the contents to compare its versions"
-                : ecfrUnitFocused() ? "the whole subpart open in the contents — click one of its sections there to narrow to it"
-                : "the section open in the contents — pick another there, or its subpart heading for all of it")
-            : ""}</span>`;
+        <span class="ecfr-pane-tabs-hint"></span>`;
 }
 
 async function ecfrSetPaneTab(tab) {
