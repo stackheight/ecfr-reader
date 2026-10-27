@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.4.0 — unreleased
+
+**The Dockets tab: the regulations.gov record behind a rule.** A second
+workspace beside eCFR in the header (`#dockets`, `#dockets/<docket>`,
+`#dockets/<docket>/<document>`). Add a docket by ID or by searching EPA's
+dockets, and a sync catalogs it: the docket record, every agency document
+of every type — proposed and final rules, notices, the supporting memos,
+meeting materials, reports and data files — and each document's files
+(URL, format, size) and attachments, plus the public-comment count on each
+rule. The catalog lives in a third SQLite file, `data/dockets.db`, with
+kept files under `data/dockets/<docket>/<document>/`. Facet by type,
+subtype and file format or by "copy kept here", search titles and
+abstracts (FTS5), open a document for its abstract, Federal Register
+citation, comment period and files.
+
+The sync is resumable and a good citizen: `REGSGOV_API_KEY` (a free
+api.data.gov key) on every request, 0.6 s between requests, 25 of the
+hour's 1,000 kept unspent, and when the quota runs out or you press Stop it
+records where it was and continues from the rows still pending next time.
+`ecfr-reader dockets add|sync|list` does the same from the command line.
+
+Files are handled honestly. `downloads.regulations.gov` serves browsers
+only (HTTP 403 to everything else), and this tool does not pretend to be
+one: every file **opens** in a new tab from its real URL, **Keep a copy** is
+one server-side attempt (the data formats in `REGSGOV_AUTO_PULL`, default
+`xlsx,xls,csv,zip`, are tried during a sync), and a **drop zone** on each
+document files a browser download under it, matched to the catalogued
+entry by format and size. Kept copies are served by the app.
+
+New routes under `/api/dockets/` (see the README), new settings
+`REGSGOV_API_KEY`, `REGSGOV_AUTO_PULL`, `ECFR_DOCKETS_DB`.
+
 ## 1.3.0 — 2026-10-24
 
 **A subpart is a thing you can open whole.** Clicking a subpart heading in

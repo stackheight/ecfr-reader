@@ -6,10 +6,11 @@ gives you a reader that works offline: a table of contents you can star,
 full-text search, up to six reading frames side by side (the local
 snapshot, live ecfr.gov, or any past version), a Compare tab in the same
 pane that prints the difference between two versions as a git-style diff, highlights with
-comments, notes, and a check that tells you when ecfr.gov has published a
-newer issue.
+comments, notes, a check that tells you when ecfr.gov has published a
+newer issue, and a Dockets tab that catalogs the regulations.gov record
+behind a rule — every document in a docket with its PDFs and spreadsheets.
 
-State-level regulations maybe added in the future where practicable.
+State-level regulations may be added in the future where practicable.
 
 ![The reader](docs/screenshot.png)
 
@@ -107,6 +108,15 @@ GitHub workflow.
 - **Updates.** The dashboard checks ecfr.gov for a newer issue of your
   parts and lists what changed. It only tells you; refreshing is the two
   commands above, run again.
+- **Dockets.** A second tab, beside eCFR in the header: the regulations.gov
+  docket behind a rule. Add one by ID (it is printed in every Federal
+  Register notice) or by searching EPA's dockets, and a sync catalogs it:
+  the docket record, every agency document — proposed rule, final rule,
+  notices, the hundreds of supporting memos, meeting materials, reports
+  and data files — and each document's files with format and size. Facet
+  by type, subtype and format (`xlsx`, `pdf`, …), search titles and
+  abstracts, open a document to see its abstract, Federal Register citation,
+  comment count and files. See [Dockets](#dockets) for how files are handled.
 - **Light and dark themes.**
 
 Your notes, marks and stars live in `data/annotations.db`. That is the one
@@ -127,12 +137,18 @@ YYYY-MM-DD` fetches a past issue; `--force` refetches parts already on
 disk (a fetch is otherwise resumable). The parts in scope are remembered
 in `data/dataset_state.json`.
 
-## Being a good client of ecfr.gov
+## Being a good client of ecfr.gov and regulations.gov
 
 The eCFR versioner API (https://www.ecfr.gov/developers) is a public
 service. This tool identifies itself with your `ECFR_CONTACT`, waits 1.5 s
 between parts, backs off for 30 s on a 429, and makes at most two requests
 per update check. Please keep it that way.
+
+regulations.gov is another: every request carries your own api.data.gov
+key and an identifying User-Agent, a sync waits 0.6 s between requests and
+stops with 25 of the hour's 1,000 unspent, a docket search is cached for a
+day, and the file host's refusal of non-browser clients is respected, not
+worked around.
 
 ## API
 
@@ -155,6 +171,21 @@ Everything the page uses is plain JSON under `/api/ecfr/`:
 | `POST /highlights`, `PATCH`/`DELETE /highlights/<id>`     | marks                                                      |
 | `GET`/`POST /favorites`                                   | stars (POST toggles)                                       |
 
+The Dockets tab's routes are under `/api/dockets/`:
+
+| Route                                                     | What                                                       |
+| --------------------------------------------------------- | ---------------------------------------------------------- |
+| `GET /`                                                   | tracked dockets with counts, totals, the API quota last seen, whether a key is set |
+| `GET /search?q=&agency=EPA`                               | docket search on regulations.gov (one request, cached a day) |
+| `POST /` `{docket_id, pull}`                              | track a docket (one request) and start its sync            |
+| `GET`/`DELETE /<docket>[?files=1]`                        | the docket with its facet counts and sync state; untrack it |
+| `GET /<docket>/documents?type=&subtype=&format=&q=&local=1&sort=&offset=&limit=` | the catalog, filtered and paged, each row with its files |
+| `GET`/`POST`/`DELETE /<docket>/sync`                      | the sync job's state; start or resume it (`{pull: data|all|none}`); ask it to stop |
+| `GET /documents/<id>`                                     | one document's detail and files                            |
+| `POST /files/<id>/fetch`                                  | one honest attempt to keep a copy (502 with the reason when the host refuses) |
+| `POST /documents/<id>/upload`                             | the drop zone: a browser download filed under the document |
+| `GET /files/<id>`                                         | a kept copy (PDF inline, everything else as a download)    |
+
 ## Development
 
 ```bash
@@ -167,11 +198,18 @@ The tests build a corpus from one small synthetic part
 never touch ecfr.gov or your data. The GitHub workflow runs them on Python
 3.10, 3.12 and 3.13 and audits the pinned dependencies.
 
-The frontend is five classic scripts and one stylesheet with no build
+The frontend is six classic scripts and one stylesheet with no build
 step; the text-annotation engine is the vendored UMD build of
 [@recogito/text-annotator](https://github.com/recogito/text-annotator-js).
 
 ## Roadmap
+
+- **Comments in the docket catalog.** Public comments on a rule are
+  counted today, not listed; cataloguing them (and their attachments) is
+  one request per comment, so it needs a plan for the hourly quota.
+- **From a section to its dockets.** A docket's keywords already link to
+  the subparts they name; the reverse — the dockets behind the section you
+  are reading — would come from the eCFR's source notes.
 
 - **A git-backed archive.** `ecfr-reader snapshot` would render every
   section to one text file (one paragraph per line) and commit the set

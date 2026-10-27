@@ -785,13 +785,16 @@ def dockets_add():
 
 @bp.route("/api/dockets/<docket_id>", methods=["GET"])
 def docket_get(docket_id):
-    from .dockets import store, sync
+    from . import config
+    from .dockets import client, store, sync
     store.init_db()
     d = store.get_docket(docket_id)
     if not d:
         return jsonify({"error": f"Docket {docket_id} is not tracked here"}), 404
     d["summary"] = store.docket_summary(docket_id)
     d["sync"] = sync.status(docket_id)
+    d["rate"] = client.last_rate
+    d["key_set"] = bool(config.regsgov_api_key())
     return jsonify(d)
 
 
