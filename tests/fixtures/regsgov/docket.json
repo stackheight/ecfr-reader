@@ -1,0 +1,48 @@
+{
+ "data": {
+  "id": "EPA-HQ-OAR-2021-0317",
+  "type": "dockets",
+  "attributes": {
+   "displayProperties": [
+    {
+     "name": "generic",
+     "label": "Location",
+     "tooltip": "Agency specific program associated with a docket (regulatory action); equivalents: Bureau, Docket Item Code, Program Area."
+    },
+    {
+     "name": "shortTitle",
+     "label": "Short Title",
+     "tooltip": "A combination of letters and or numbers assigned to an agency's regulatory action for purposes of brevity."
+    }
+   ],
+   "keywords": [
+    "40 CFR part 60 subpart OOOO, OOOO",
+    "40 CFR part 60 subpart OOOOa",
+    "CAA Section 111(d)",
+    "methane"
+   ],
+   "modifyDate": "2025-07-23T17:07:06Z",
+   "dkAbstract": "A trimmed abstract for the test docket.",
+   "agencyId": "EPA",
+   "program": null,
+   "shortTitle": "NSPS and EG: Oil and Natural Gas Sector Climate Review",
+   "subType2": null,
+   "title": "Standards of Performance for New, Reconstructed, and Modified  Sources and Emissions Guidelines for Existing Sources: Oil and Natural Gas Sector Climate Review",
+   "generic": "HQ-OAR",
+   "field1": null,
+   "docketType": "Rulemaking",
+   "petitionNbr": null,
+   "rin": "Not Assigned",
+   "organization": null,
+   "legacyId": null,
+   "subType": "Section 111(d) Plan",
+   "category": null,
+   "field2": null,
+   "effectiveDate": null,
+   "objectId": "0b00006484ab29f5"
+  },
+  "links": {
+   "self": "https://api.regulations.gov/v4/dockets/EPA-HQ-OAR-2021-0317"
+  }
+ }
+}

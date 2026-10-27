@@ -7,6 +7,7 @@ from flask import Flask, send_from_directory
 
 from . import __version__, config
 from .annotations import init_db
+from .dockets.store import init_db as init_dockets_db
 from .api import bp
 
 STATIC = os.path.join(os.path.dirname(__file__), "static")
@@ -17,6 +18,7 @@ def create_app():
     app.register_blueprint(bp)
     os.makedirs(os.path.dirname(os.path.abspath(config.annotations_db())), exist_ok=True)
     init_db()
+    init_dockets_db()
 
     @app.route("/")
     def index():

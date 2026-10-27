@@ -1,0 +1,17 @@
+{
+ "data": [],
+ "meta": {
+  "aggregations": {
+   "subtype": []
+  },
+  "hasNextPage": false,
+  "hasPreviousPage": false,
+  "numberOfElements": 0,
+  "pageNumber": 1,
+  "pageSize": 250,
+  "totalElements": 0,
+  "totalPages": 1,
+  "firstPage": true,
+  "lastPage": true
+ }
+}

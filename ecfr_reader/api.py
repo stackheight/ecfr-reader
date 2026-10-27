@@ -2,7 +2,8 @@
 sections, search, the notify-only update check), live text from ecfr.gov
 (a section or a subpart), and your notes / highlights / favorites.
 """
-import re          # search tokenizer (ecfr_search)
+import os          # kept docket files (docket_file, docket_document_upload)
+import re          # search tokenizer (ecfr_search); docket ids
 import sqlite3     # FTS5 OperationalError handling (ecfr_search)
 
 from flask import Blueprint, jsonify, request
@@ -707,3 +708,259 @@ def toggle_ecfr_favorite_route():
         return jsonify({"error": "node_key is required"}), 400
     return jsonify(toggle_favorite(node_type, node_key, data.get("citation", ""), data.get("label", "")))
 
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Dockets — regulations.gov (ecfr_reader/dockets/). Every route imports
+# inside, like the rest of this file. Catalog reads need no key; anything
+# that talks to regulations.gov 502s with the reason when REGSGOV_API_KEY
+# is unset, naming the variable and the sign-up page.
+# ═══════════════════════════════════════════════════════════════════════
+
+def _regsgov_error(e):
+    from . import config
+    body = {"error": str(e), "status": getattr(e, "status", None)}
+    if "REGSGOV_API_KEY" in str(e):
+        body["key_missing"] = True
+        body["signup_url"] = config.REGSGOV_SIGNUP_URL
+    return jsonify(body), 502
+
+
+def _docket_id_ok(docket_id):
+    """Docket ids look like EPA-HQ-OAR-2021-0317: letters, digits, dashes
+    and underscores. Anything else is refused before it reaches the API or
+    a path on disk."""
+    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_\-.]{2,80}", docket_id or ""))
+
+
+@bp.route("/api/dockets", methods=["GET"])
+def dockets_home():
+    from . import config
+    from .dockets import client, store
+    store.init_db()
+    return jsonify({"dockets": store.list_dockets(), "totals": store.totals(), "rate": client.last_rate,
+                    "key_set": bool(config.regsgov_api_key()), "signup_url": config.REGSGOV_SIGNUP_URL,
+                    "auto_pull": sorted(config.auto_pull_formats())})
+
+
+@bp.route("/api/dockets/search", methods=["GET"])
+def dockets_search():
+    """Look a docket up by words (one request to regulations.gov, cached a
+    day): ?q=oil+and+gas&agency=EPA."""
+    from .dockets import client, store
+    q = (request.args.get("q") or "").strip()
+    agency = (request.args.get("agency") or "").strip().upper() or None
+    if len(q) < 2:
+        return jsonify({"error": "q is required (two characters or more)"}), 400
+    store.init_db()
+    key = f"search:{agency or '*'}:{q.lower()}"
+    rows = store.cache_get(key, max_age_s=24 * 3600)
+    cached = rows is not None
+    if rows is None:
+        try:
+            rows = client.search_dockets(q, agency)
+        except client.RegsGovError as e:
+            return _regsgov_error(e)
+        store.cache_put(key, rows)
+    return jsonify({"q": q, "agency": agency, "results": rows, "cached": cached})
+
+
+@bp.route("/api/dockets", methods=["POST"])
+def dockets_add():
+    """Track a docket: fetch its record (one request), then start the
+    catalog sync in the background. Body: {docket_id, pull: data|all|none}."""
+    from .dockets import client, store, sync
+    data = request.get_json(silent=True) or {}
+    docket_id = (data.get("docket_id") or "").strip().upper()
+    if not _docket_id_ok(docket_id):
+        return jsonify({"error": "docket_id is required, e.g. EPA-HQ-OAR-2021-0317"}), 400
+    store.init_db()
+    try:
+        store.upsert_docket(client.docket(docket_id))
+    except client.RegsGovError as e:
+        return _regsgov_error(e)
+    state = sync.start(docket_id, data.get("pull") or "data")
+    return jsonify({"docket": store.get_docket(docket_id), "sync": state}), 201
+
+
+@bp.route("/api/dockets/<docket_id>", methods=["GET"])
+def docket_get(docket_id):
+    from .dockets import store, sync
+    store.init_db()
+    d = store.get_docket(docket_id)
+    if not d:
+        return jsonify({"error": f"Docket {docket_id} is not tracked here"}), 404
+    d["summary"] = store.docket_summary(docket_id)
+    d["sync"] = sync.status(docket_id)
+    return jsonify(d)
+
+
+@bp.route("/api/dockets/<docket_id>", methods=["DELETE"])
+def docket_remove(docket_id):
+    """Stop tracking. Kept files stay on disk unless ?files=1."""
+    import shutil
+    from . import config
+    from .dockets import store, sync
+    from werkzeug.utils import secure_filename
+    store.init_db()
+    if not store.get_docket(docket_id):
+        return jsonify({"error": f"Docket {docket_id} is not tracked here"}), 404
+    sync.stop(docket_id)
+    sync.wait(docket_id, timeout=5)
+    store.remove_docket(docket_id)
+    removed_files = False
+    if request.args.get("files") == "1":
+        folder = os.path.join(config.dockets_dir(), secure_filename(docket_id))
+        if os.path.isdir(folder):
+            shutil.rmtree(folder, ignore_errors=True)
+            removed_files = True
+    return jsonify({"removed": docket_id, "files_removed": removed_files})
+
+
+@bp.route("/api/dockets/<docket_id>/documents", methods=["GET"])
+def docket_documents(docket_id):
+    """The catalog, filtered: ?type=Rule&subtype=Data&format=xlsx&q=words
+    &local=1&sort=posted|-posted|title|type&offset=0&limit=100."""
+    from .dockets import store
+    store.init_db()
+    if not store.get_docket(docket_id):
+        return jsonify({"error": f"Docket {docket_id} is not tracked here"}), 404
+    try:
+        offset = int(request.args.get("offset") or 0)
+        limit = int(request.args.get("limit") or 100)
+    except ValueError:
+        return jsonify({"error": "offset and limit must be integers"}), 400
+    r = store.list_documents(docket_id, document_type=request.args.get("type") or None,
+                             subtype=request.args.get("subtype") or None, fmt=request.args.get("format") or None,
+                             q=request.args.get("q") or None, local_only=request.args.get("local") == "1",
+                             sort=request.args.get("sort") or "posted", offset=offset, limit=limit)
+    r.update({"docket_id": docket_id, "offset": offset, "limit": limit})
+    return jsonify(r)
+
+
+@bp.route("/api/dockets/<docket_id>/sync", methods=["GET", "POST", "DELETE"])
+def docket_sync(docket_id):
+    """GET the job's state; POST {pull} starts or resumes it; DELETE asks it
+    to stop after the request in flight."""
+    from . import config
+    from .dockets import store, sync
+    store.init_db()
+    if not store.get_docket(docket_id):
+        return jsonify({"error": f"Docket {docket_id} is not tracked here"}), 404
+    if request.method == "POST":
+        if not config.regsgov_api_key():
+            return _regsgov_error(RuntimeError(
+                f"REGSGOV_API_KEY is not set. Get a free key at {config.REGSGOV_SIGNUP_URL} and export it."))
+        data = request.get_json(silent=True) or {}
+        pull = data.get("pull") or "data"
+        if data.get("retry_files"):
+            store.clear_file_errors(docket_id)
+        return jsonify(sync.start(docket_id, pull)), 202
+    if request.method == "DELETE":
+        return jsonify({"stopping": sync.stop(docket_id)})
+    return jsonify(sync.status(docket_id))
+
+
+@bp.route("/api/dockets/documents/<document_id>", methods=["GET"])
+def docket_document(document_id):
+    from .dockets import store
+    store.init_db()
+    d = store.get_document(document_id)
+    if not d:
+        return jsonify({"error": f"Document {document_id} is not in the catalog"}), 404
+    return jsonify(d)
+
+
+@bp.route("/api/dockets/files/<int:file_id>/fetch", methods=["POST"])
+def docket_file_fetch(file_id):
+    """One honest attempt to keep a copy of a catalogued file. The file host
+    refuses non-browsers (403): the 502 then says to open the file and drop
+    the download on the document."""
+    from .dockets import client, store, sync
+    store.init_db()
+    f = store.get_file(file_id)
+    if not f:
+        return jsonify({"error": "No such file"}), 404
+    if not f.get("file_url"):
+        return jsonify({"error": "This file was dropped in; it has no regulations.gov URL"}), 400
+    try:
+        r = sync.pull_file(f)
+    except client.RefusedByFileHost as e:
+        store.mark_file_error(file_id, str(e))
+        return jsonify({"error": str(e), "refused": True}), 502
+    except client.RegsGovError as e:
+        store.mark_file_error(file_id, str(e))
+        return jsonify({"error": str(e)}), 502
+    return jsonify({"file": store.get_file(file_id), **r})
+
+
+@bp.route("/api/dockets/documents/<document_id>/upload", methods=["POST"])
+def docket_document_upload(document_id):
+    """The drop zone: a file the user downloaded in the browser, filed under
+    the document. Matched to the catalogued file it most likely is (same
+    format and size), else kept as an extra file on the document."""
+    import hashlib
+    from . import config
+    from .dockets import store
+    from werkzeug.utils import secure_filename
+    store.init_db()
+    doc = store.get_document(document_id)
+    if not doc:
+        return jsonify({"error": f"Document {document_id} is not in the catalog"}), 404
+    up = request.files.get("file")
+    if not up or not up.filename:
+        return jsonify({"error": "Send the file as multipart field 'file'"}), 400
+    name = secure_filename(os.path.basename(up.filename)) or "file"
+    fmt = (os.path.splitext(name)[1].lstrip(".") or "").lower() or None
+    folder = os.path.join(config.dockets_dir(), secure_filename(doc["docket_id"]), secure_filename(document_id))
+    os.makedirs(folder, exist_ok=True)
+    dest = os.path.join(folder, name)
+    sha, size = hashlib.sha256(), 0
+    with open(dest + ".tmp", "wb") as out:
+        while True:
+            chunk = up.stream.read(1 << 16)
+            if not chunk:
+                break
+            out.write(chunk)
+            sha.update(chunk)
+            size += len(chunk)
+    os.replace(dest + ".tmp", dest)
+    rel = os.path.relpath(dest, config.dockets_dir())
+    match = store.match_upload(document_id, name, size, fmt)
+    if match:
+        store.mark_file_local(match["id"], rel, size, sha.hexdigest())
+        file_id, matched = match["id"], True
+    else:
+        file_id = store.add_extra_file(document_id, name, fmt, rel, size, sha.hexdigest())
+        matched = False
+    return jsonify({"file": store.get_file(file_id), "matched": matched, "document": store.get_document(document_id)}), 201
+
+
+_INLINE_FORMATS = {"pdf": "application/pdf", "txt": "text/plain", "htm": "text/html", "html": "text/html"}
+_MIME = {"xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+         "xls": "application/vnd.ms-excel", "csv": "text/csv", "zip": "application/zip",
+         "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+         "doc": "application/msword", "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation"}
+
+
+@bp.route("/api/dockets/files/<int:file_id>", methods=["GET"])
+def docket_file(file_id):
+    """Serve a kept copy. The path comes from the catalog row, never from
+    the URL, and must resolve inside the dockets directory. PDFs open
+    inline (the browser's viewer); everything else downloads."""
+    from flask import send_file
+    from . import config
+    from .dockets import store
+    store.init_db()
+    f = store.get_file(file_id)
+    if not f or not f.get("local_path"):
+        return jsonify({"error": "No local copy of this file"}), 404
+    root = os.path.realpath(config.dockets_dir())
+    path = os.path.realpath(os.path.join(root, f["local_path"]))
+    if not path.startswith(root + os.sep) or not os.path.isfile(path):
+        return jsonify({"error": "The local copy is missing"}), 404
+    fmt = (f.get("format") or os.path.splitext(path)[1].lstrip(".")).lower()
+    inline = fmt in _INLINE_FORMATS
+    mimetype = _INLINE_FORMATS.get(fmt) or _MIME.get(fmt) or "application/octet-stream"
+    return send_file(path, mimetype=mimetype, as_attachment=not inline, download_name=os.path.basename(path),
+                     conditional=True)

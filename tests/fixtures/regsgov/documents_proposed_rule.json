@@ -1,0 +1,40 @@
+{
+ "data": [
+  {
+   "type": "documents",
+   "id": "EPA-HQ-OAR-2021-0317-0001",
+   "attributes": {
+    "agencyId": "EPA",
+    "objectId": "0900006484c00001",
+    "frDocNum": "2021-24202",
+    "documentType": "Proposed Rule",
+    "withdrawn": false,
+    "highlightedContent": "",
+    "commentEndDate": "2022-01-31T04:59:59Z",
+    "commentStartDate": "2021-11-15T05:00:00Z",
+    "lastModifiedDate": "2021-11-15T05:00:00Z",
+    "openForComment": false,
+    "withinCommentPeriod": false,
+    "postedDate": "2021-11-15T05:00:00Z",
+    "title": "Standards of Performance for New, Reconstructed, and Modified Sources: Oil and Natural Gas Sector Climate Review",
+    "docketId": "EPA-HQ-OAR-2021-0317",
+    "subtype": null,
+    "allowLateComments": false
+   }
+  }
+ ],
+ "meta": {
+  "aggregations": {
+   "subtype": []
+  },
+  "hasNextPage": false,
+  "hasPreviousPage": false,
+  "numberOfElements": 1,
+  "pageNumber": 1,
+  "pageSize": 250,
+  "totalElements": 1,
+  "totalPages": 1,
+  "firstPage": true,
+  "lastPage": true
+ }
+}

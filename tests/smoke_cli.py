@@ -30,6 +30,8 @@ def run():
     assert client.get("/api/ecfr/search?q=records").get_json()["total"] == 1
     note = client.post("/api/ecfr/notes", json={"section_key": "999:999.1", "note": "smoke — ok →"})
     assert note.status_code == 201
+    dockets = client.get("/api/dockets").get_json()          # loads with no REGSGOV_API_KEY
+    assert dockets["dockets"] == [] and dockets["key_set"] is False, dockets
     print("smoke ok on", sys.platform, "python", sys.version.split()[0])
 
 

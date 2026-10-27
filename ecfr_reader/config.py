@@ -68,3 +68,52 @@ def user_agent():
             "ECFR_CONTACT=you@example.org and run again. The reader itself "
             "works without it — only fetching and the update check talk to ecfr.gov.")
     return f"ecfr-reader/{__version__} (+{REPO_URL}; contact: {who})"
+
+
+# ── regulations.gov (the Dockets tab) ───────────────────────────────────
+
+REGSGOV_SIGNUP_URL = "https://api.data.gov/signup/"
+DEFAULT_AUTO_PULL = "xlsx,xls,csv,zip"
+
+
+def dockets_db():
+    return os.environ.get("ECFR_DOCKETS_DB") or os.path.join(data_dir(), "dockets.db")
+
+
+def dockets_dir():
+    """Where kept docket files live: <data>/dockets/<docket>/<document>/<file>."""
+    return os.path.join(data_dir(), "dockets")
+
+
+def regsgov_api_key():
+    """The api.data.gov key, or None when unset. DEMO_KEY (30 requests an
+    hour, shared by everyone on the IP) is deliberately not a fallback."""
+    return (os.environ.get("REGSGOV_API_KEY") or "").strip() or None
+
+
+def require_regsgov_api_key():
+    key = regsgov_api_key()
+    if not key:
+        raise RuntimeError(
+            "REGSGOV_API_KEY is not set. regulations.gov needs an api.data.gov key "
+            f"(free, instant: {REGSGOV_SIGNUP_URL}); export REGSGOV_API_KEY=… and run "
+            "again. The reader itself works without it — only the Dockets tab talks to "
+            "regulations.gov.")
+    return key
+
+
+def auto_pull_formats():
+    """Formats a sync downloads on its own, lower-cased, from REGSGOV_AUTO_PULL
+    (default xlsx,xls,csv,zip). "none" or an empty value means catalog only."""
+    raw = os.environ.get("REGSGOV_AUTO_PULL")
+    raw = DEFAULT_AUTO_PULL if raw is None else raw
+    if raw.strip().lower() in ("", "none", "0", "off"):
+        return set()
+    return {f.strip().lower().lstrip(".") for f in raw.split(",") if f.strip()}
+
+
+def regsgov_user_agent():
+    """regulations.gov does not ask for a contact the way ecfr.gov does; the
+    client still says who it is, and names the contact when one is set."""
+    who = contact()
+    return f"ecfr-reader/{__version__} (+{REPO_URL}" + (f"; contact: {who})" if who else ")")

@@ -1,0 +1,9 @@
+{
+ "data": [],
+ "meta": {
+  "totalElements": 1234,
+  "totalPages": 20,
+  "pageNumber": 1,
+  "pageSize": 5
+ }
+}

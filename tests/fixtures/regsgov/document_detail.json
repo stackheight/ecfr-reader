@@ -1,0 +1,79 @@
+{
+ "data": {
+  "id": "EPA-HQ-OAR-2021-0317-3859",
+  "type": "documents",
+  "links": {
+   "self": "https://api.regulations.gov/v4/documents/EPA-HQ-OAR-2021-0317-3859"
+  },
+  "attributes": {
+   "agencyId": "EPA",
+   "objectId": "0900006485c544df",
+   "frDocNum": null,
+   "documentType": "Supporting & Related Material",
+   "withdrawn": false,
+   "commentEndDate": null,
+   "commentStartDate": null,
+   "lastModifiedDate": null,
+   "openForComment": false,
+   "withinCommentPeriod": false,
+   "postedDate": "2024-03-08T05:00:00Z",
+   "title": "01.17.2023 Meeting with GPA Midstream",
+   "docketId": "EPA-HQ-OAR-2021-0317",
+   "subtype": "Meeting Materials",
+   "docAbstract": "Presentation and notes from the meeting with GPA Midstream.",
+   "fileFormats": [
+    {
+     "fileUrl": "https://downloads.regulations.gov/EPA-HQ-OAR-2021-0317-3859/content.pdf",
+     "format": "pdf",
+     "size": 124566
+    }
+   ],
+   "cfrPart": null,
+   "frVolNum": null,
+   "startEndPage": null,
+   "authors": [
+    "Karen Marsh, USEPA"
+   ],
+   "pageCount": 12,
+   "modifyDate": "2024-03-09T01:44:41Z",
+   "receiveDate": "2023-07-05T04:00:00Z"
+  },
+  "relationships": {
+   "attachments": {
+    "data": [
+     {
+      "type": "attachments",
+      "id": "0900006485c544e0"
+     }
+    ]
+   }
+  }
+ },
+ "links": {
+  "self": "https://regulations.gov/v4/documents/EPA-HQ-OAR-2021-0317-3859?include=attachments"
+ },
+ "included": [
+  {
+   "type": "attachments",
+   "id": "0900006485c544e0",
+   "attributes": {
+    "agencyNote": null,
+    "authors": null,
+    "docAbstract": null,
+    "docOrder": 1,
+    "fileFormats": [
+     {
+      "fileUrl": "https://downloads.regulations.gov/EPA-HQ-OAR-2021-0317-3859/attachment_1.xlsx",
+      "format": "xlsx",
+      "size": 48213
+     }
+    ],
+    "modifyDate": "2024-03-09T01:44:41Z",
+    "publication": null,
+    "restrictReason": null,
+    "restrictReasonType": null,
+    "title": "Emissions calculations handed over at the meeting"
+   }
+  }
+ ]
+}

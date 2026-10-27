@@ -1,0 +1,71 @@
+{
+ "data": [
+  {
+   "type": "documents",
+   "id": "EPA-HQ-OAR-2021-0317-3859",
+   "attributes": {
+    "agencyId": "EPA",
+    "objectId": "0900006485c544df",
+    "frDocNum": null,
+    "documentType": "Supporting & Related Material",
+    "withdrawn": false,
+    "highlightedContent": "",
+    "commentEndDate": null,
+    "commentStartDate": null,
+    "lastModifiedDate": "2024-03-08T05:00:00Z",
+    "openForComment": false,
+    "withinCommentPeriod": false,
+    "postedDate": "2024-03-08T05:00:00Z",
+    "title": "01.17.2023 Meeting with GPA Midstream",
+    "docketId": "EPA-HQ-OAR-2021-0317",
+    "subtype": "Meeting Materials",
+    "allowLateComments": false
+   }
+  },
+  {
+   "type": "documents",
+   "id": "EPA-HQ-OAR-2021-0317-0100",
+   "attributes": {
+    "agencyId": "EPA",
+    "objectId": "0900006484c00100",
+    "frDocNum": null,
+    "documentType": "Supporting & Related Material",
+    "withdrawn": false,
+    "highlightedContent": "",
+    "commentEndDate": null,
+    "commentStartDate": null,
+    "lastModifiedDate": "2021-11-15T05:00:00Z",
+    "openForComment": false,
+    "withinCommentPeriod": false,
+    "postedDate": "2021-11-15T05:00:00Z",
+    "title": "Regulatory Impact Analysis workbook: model plant emissions",
+    "docketId": "EPA-HQ-OAR-2021-0317",
+    "subtype": "Data",
+    "allowLateComments": false
+   }
+  }
+ ],
+ "meta": {
+  "aggregations": {
+   "subtype": [
+    {
+     "docCount": 1,
+     "label": "Meeting Materials"
+    },
+    {
+     "docCount": 1,
+     "label": "Data"
+    }
+   ]
+  },
+  "hasNextPage": false,
+  "hasPreviousPage": false,
+  "numberOfElements": 2,
+  "pageNumber": 1,
+  "pageSize": 250,
+  "totalElements": 2,
+  "totalPages": 1,
+  "firstPage": true,
+  "lastPage": true
+ }
+}

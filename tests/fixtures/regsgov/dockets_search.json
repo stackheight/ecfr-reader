@@ -1,0 +1,17 @@
+{
+ "data": [
+  {
+   "type": "dockets",
+   "id": "EPA-HQ-OAR-2021-0317",
+   "attributes": {
+    "agencyId": "EPA",
+    "docketType": "Rulemaking",
+    "lastModifiedDate": "2025-07-23T17:07:06Z",
+    "title": "Standards of Performance for New, Reconstructed, and Modified  Sources and Emissions Guidelines for Existing Sources: Oil and Natural Gas Sector Climate Review"
+   }
+  }
+ ],
+ "meta": {
+  "totalElements": 1
+ }
+}
