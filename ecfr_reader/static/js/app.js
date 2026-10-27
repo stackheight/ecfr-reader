@@ -1,9 +1,11 @@
 // =====================================================================
 // ecfr-reader — the page's shared globals, in one classic script loaded
 // before ecfr-annotator.js, ecfr-diff.js and ecfr.js: escaping helpers,
-// toasts, the single-screen "router" (the hash is #ecfr, #ecfr/read/<key>
+// toasts, the two-screen "router" (the hash is #ecfr, #ecfr/read/<key>
 // or #ecfr/compare/<key>/<A>..<B>, where <key> is a section key such as
-// 60:60.4230 or a whole subpart as <part>/<subpart>), and the light / dark theme.
+// 60:60.4230 or a whole subpart as <part>/<subpart>; or #dockets,
+// #dockets/<docketId>, #dockets/<docketId>/<documentId> for the Dockets
+// tab), and the light / dark theme.
 // =====================================================================
 
 const API_BASE = "";
@@ -67,6 +69,7 @@ function wsGlyph(key) {
 let _restoringHash = false;
 
 function _stateHash() {
+    if (appScreen === "dockets" && typeof dkHash === "function") return dkHash();
     if (!ecfrCurrentKey) return "#ecfr";
     // A subpart in focus is addressed as <part>/<subpart> — two segments, no
     // colon — and a section by its key, which always has one.
@@ -90,17 +93,24 @@ function syncHash(push) {
     else history.replaceState(null, "", h);
 }
 
-// The reader is the only screen (Compare is a tab inside its pane):
-// showScreen keeps the workspace visible and writes the hash (a push when
-// the screen "changed", a replace otherwise — the convention ecfr.js was
-// written against). The write is deferred a microtask: callers set their
-// state (the dashboard clears ecfrCurrentKey) right AFTER calling this,
-// and the hash must reflect it.
+// Two screens, one visible: the reader (Compare is a tab inside its pane)
+// and the Dockets tab. showScreen shows that workspace, hides the other,
+// lights the header button, and writes the hash (a push when the screen
+// "changed", a replace otherwise — the convention ecfr.js was written
+// against). The write is deferred a microtask: callers set their state
+// (the dashboard clears ecfrCurrentKey) right AFTER calling this, and the
+// hash must reflect it.
+const SCREENS = ["ecfr", "dockets"];
+
 function showScreen(screen) {
     const changed = appScreen !== screen;
     appScreen = screen;
-    const ws = document.getElementById("ecfr-workspace");
-    if (ws) ws.style.display = "block";
+    for (const s of SCREENS) {
+        const ws = document.getElementById(`${s}-workspace`);
+        if (ws) ws.style.display = s === screen ? "block" : "none";
+        const btn = document.getElementById(`ws-${s}`);
+        if (btn) btn.classList.toggle("active", s === screen);
+    }
     queueMicrotask(() => syncHash(changed));
 }
 
@@ -115,6 +125,12 @@ async function restoreFromHash() {
     _restoringHash = true;
     try {
         const parts = location.hash.replace(/^#/, "").split("/");
+        if (parts[0] === "dockets") {
+            showScreen("dockets");
+            await openDockets(parts[1] ? decodeURIComponent(parts[1]) : null,
+                              parts[2] ? decodeURIComponent(parts[2]) : null);
+            return;
+        }
         showScreen("ecfr");
         // 1.2.0 wrote #compare/<key>/<A>..<B>; it reads as #ecfr/compare/…
         if (parts[0] === "compare") parts.unshift("ecfr");
