@@ -123,6 +123,64 @@ Your notes, marks and stars live in `data/annotations.db`. That is the one
 file worth backing up; everything else in `data/` is derived and can be
 rebuilt from ecfr.gov.
 
+## Dockets
+
+The Dockets tab talks to the [regulations.gov v4 API](https://open.gsa.gov/api/regulationsgov/),
+which needs a free api.data.gov key: one form at https://api.data.gov/signup/,
+then `export REGSGOV_API_KEY=…` before `serve`. A key allows 1,000
+requests an hour.
+
+**A sync is the catalog step, not a download.** It fetches the docket record
+(one request), lists its documents type by type (a few requests, 250 a
+page), then asks for each document's detail (one request per document; the
+list does not say what files a document has) for its abstract, Federal
+Register citation and file list, and counts the public comments on each
+rule. A large EPA rulemaking docket is 700 or so documents, so the sync
+paces itself, saves as it goes, keeps 25 requests of the hour unspent for
+browsing, and when the quota runs out it stops and **resumes from the rows
+still pending** when you press Sync again (or on the hour). Public comments
+are counted, not catalogued: a big docket has tens of thousands.
+
+**Files are a separate step, because the file host serves browsers only.**
+`downloads.regulations.gov` answers 403 to anything that is not a browser,
+and this tool does not pretend to be one. So in the catalog every file is
+listed with its format and size, **Open** is a real link to the file in a
+new tab, **Keep a copy** makes one honest server-side attempt (the formats
+in `REGSGOV_AUTO_PULL`, data files by default, are tried during a sync),
+and the **drop zone** on a document files a download you made in the
+browser into `data/dockets/<docket>/<document>/`, matched to the catalogued
+file it is by format and size. Kept copies open from the app and the
+"only documents with a copy kept here" facet finds them.
+
+**Diffing a proposal.** A proposed rule's regulatory text is not in the
+eCFR (only final rules are) and often not in the Federal Register notice
+either: EPA posts it in the docket as a "Redline/Strikeout" memo, a DOCX
+or a PDF. Keep that file, then press **Use as proposed text** on it. The
+tool reads a redline as two texts, the struck runs being the *before* and
+the inserted runs the *after*, finds the sections and amendatory
+instructions ("Revising paragraph (b)(1)"), keys every paragraph by its
+CFR enumerator path, and composes **the subpart as it would read**: revised
+paragraphs replaced, new ones inserted in enumerator order, struck ones
+removed, everything unmentioned carried over unchanged, and anything that
+fits nowhere listed as *unmatched* rather than dropped. The result is a
+source like any dated version: **Proposed — <title>** in a frame's source
+menu and in the Compare tab's pickers, so `local..proposal:3` prints the
+proposal against your snapshot as a git-style diff, and **Base of
+proposal** diffs the text EPA marked up against your snapshot, with the
+share of base paragraphs that match reported, which tells you whether EPA
+redlined the same text you have. DOCX is read exactly from Word's tracked
+changes and strike/underline formatting; PDF is read by geometry, pairing
+the drawn strike and underline lines with the characters under them, and
+the counts of struck and inserted spans are reported so you can judge it.
+A file with no detectable markup is read as clean text, by paragraph
+(`amend`) or whole sections (`replace`).
+
+The same from the command line: `ecfr-reader dockets add EPA-HQ-OAR-2021-0317`,
+`dockets sync <ID>` (resumes), `dockets list`. The catalog is
+`data/dockets.db`, separate from the corpus (rebuilt in seconds) because it
+costs hundreds of requests to rebuild, and from `annotations.db` because it
+holds nothing you wrote.
+
 ## Configuration
 
 | Variable              | Default                 | Meaning                                                                                                                                                                                                        |
@@ -131,6 +189,9 @@ rebuilt from ecfr.gov.
 | `ECFR_DATA_DIR`       | `./data`                | Where the XML, the corpus and your annotations live. Relative to the directory you run from.                                                                                                                   |
 | `ECFR_DB`             | `<data>/ecfr.db`        | The corpus file.                                                                                                                                                                                               |
 | `ECFR_ANNOTATIONS_DB` | `<data>/annotations.db` | Your notes, marks and stars.                                                                                                                                                                                   |
+| `REGSGOV_API_KEY`     | unset                   | Required by the Dockets tab: a free [api.data.gov](https://api.data.gov/signup/) key sent as `X-Api-Key` on every regulations.gov request. `DEMO_KEY` is never substituted (30 requests an hour, shared by everyone behind your address). |
+| `REGSGOV_AUTO_PULL`   | `xlsx,xls,csv,zip`      | File formats a docket sync tries to download itself; `none` to catalog only. |
+| `ECFR_DOCKETS_DB`     | `<data>/dockets.db`     | The docket catalog and the proposals read from its files. Kept files go under `<data>/dockets/`. |
 
 `fetch --parts 60,63` or `--parts 50-52` narrows the corpus; `--date
 YYYY-MM-DD` fetches a past issue; `--force` refetches parts already on
@@ -185,6 +246,10 @@ The Dockets tab's routes are under `/api/dockets/`:
 | `POST /files/<id>/fetch`                                  | one honest attempt to keep a copy (502 with the reason when the host refuses) |
 | `POST /documents/<id>/upload`                             | the drop zone: a browser download filed under the document |
 | `GET /files/<id>`                                         | a kept copy (PDF inline, everything else as a download)    |
+| `POST /files/<id>/proposal` `{mode}`                      | read a kept .docx/.pdf as proposed regulatory text (`amend` by paragraph path, or `replace` whole sections) |
+| `GET /proposals?part=`, `GET`/`DELETE /proposals/<id>`    | the readings that cover a part; one reading's summary; forget it |
+| `GET /proposals/<id>/unit?part=&subpart=&side=after|before` | the subpart as it would read (or EPA's base), the `/api/ecfr/unit` shape plus `coverage` |
+| `GET /proposals/<id>/section?key=&side=`                  | one section of that composition                             |
 
 ## Development
 
@@ -198,7 +263,8 @@ The tests build a corpus from one small synthetic part
 never touch ecfr.gov or your data. The GitHub workflow runs them on Python
 3.10, 3.12 and 3.13 and audits the pinned dependencies.
 
-The frontend is six classic scripts and one stylesheet with no build
+Reading a redline PDF uses `pdfminer.six` (the only dependency beyond
+Flask and the XML parsers). The frontend is six classic scripts and one stylesheet with no build
 step; the text-annotation engine is the vendored UMD build of
 [@recogito/text-annotator](https://github.com/recogito/text-annotator-js).
 

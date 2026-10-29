@@ -118,6 +118,18 @@ class PathResolver:
     def path(self):
         return "".join(f"({t})" for t, _ in self.stack)
 
+    def set_path(self, tokens):
+        """Place the stack on an absolute path such as ["b", "1"]: kinds
+        follow the CFR order from the first token's kind."""
+        kind = _guess_kind(tokens[0])
+        self.stack = []
+        for t in tokens:
+            self.stack.append((t, kind if kind in _kinds(t) else _guess_kind(t)))
+            kind = NEXT_KIND[self.stack[-1][1]]
+        self.seen_enum = True
+        self.cont = 0
+        return self.path()
+
     def next(self, leaders):
         if not leaders:
             if not self.seen_enum:
@@ -127,14 +139,7 @@ class PathResolver:
         self.seen_enum = True
         self.cont = 0
         if len(leaders) > 1:
-            # an absolute path like (b)(2)(i): kinds follow the CFR order from
-            # the first token's kind
-            kind = _guess_kind(leaders[0])
-            self.stack = []
-            for t in leaders:
-                self.stack.append((t, kind if kind in _kinds(t) else _guess_kind(t)))
-                kind = NEXT_KIND[self.stack[-1][1]]
-            return self.path()
+            return self.set_path(leaders)        # an absolute path like (b)(2)(i)
         t = leaders[0]
         kinds = _kinds(t)
         # a sibling of the current level?
@@ -191,8 +196,11 @@ def parse(extracted: dict) -> dict:
     part, subpart = None, None
     front = 0
 
+    used_paths = set()
+
     def start(identifier, heading, heading_before, removed=False):
         nonlocal cur, resolver
+        used_paths.clear()
         p = identifier.split(".")[0]
         if p not in parts:
             parts.append(p)
@@ -250,7 +258,26 @@ def parse(extracted: dict) -> dict:
             cur["instructions"].append({"verb": verb, "paths": paths, "target": target})
             continue
         leaders = leaders_of(after) or leaders_of(before)
-        path = resolver.next(leaders)
+        # A redline shows only the paragraphs that change, so "(1)" may
+        # arrive with no "(b)" above it. The amendatory instruction names
+        # the full path ("Revising paragraph (b)(1)"): when one instruction
+        # path ends in this paragraph's enumerator and has not been used,
+        # that is where it belongs.
+        path = None
+        if len(leaders) == 1:
+            want = f"({leaders[0]})"
+            for instr in cur["instructions"]:
+                for ipath in instr["paths"]:
+                    if ipath.endswith(want) and ipath not in used_paths and ipath != resolver.path():
+                        if ipath.count("(") > 1:
+                            path = resolver.set_path(re.findall(r"\(([a-zA-Z0-9]{1,4})\)", ipath))
+                        used_paths.add(ipath)
+                        break
+                if path:
+                    break
+        if path is None:
+            path = resolver.next(leaders)
+            used_paths.add(path)
         cur["paragraphs"].append({"path": path, "before": before, "after": after,
                                   "kind": "table" if p["kind"] == "table" else "p"})
 

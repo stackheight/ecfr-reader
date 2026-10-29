@@ -365,3 +365,34 @@ def test_import_a_proposal_and_compose_the_unit(client, regs_gov):
     assert c.post(f"/api/dockets/files/{pre['id']}/proposal").status_code == 422
     assert c.delete(f"/api/dockets/proposals/{again['id']}").status_code == 200
     assert c.get("/api/dockets/proposals").get_json()["proposals"] == []
+
+
+def test_instructions_place_orphan_paragraphs_and_inserts_keep_enumerator_order(tmp_path):
+    """EPA's redlines show only the paragraphs that change: "(1)" arrives
+    with no "(b)" above it, and "(vi)" with no (iv) or (v) before it. The
+    instruction names the full path; the composition puts (vi) after (v)."""
+    from ecfr_reader.proposals.compose import compose
+    from ecfr_reader.proposals.extract import extract
+    from ecfr_reader.proposals.parse import parse
+    unit = {"part": "60", "subpart": "Q", "heading": "Subpart Q", "sections": [
+        {"section_key": "60:60.1", "part": "60", "subpart": "Q", "identifier": "60.1", "type": "section",
+         "heading": "§ 60.1 Things.", "citation": "40 CFR 60.1", "blocks": [{"type": "p", "text": t} for t in (
+             "(a) First.", "(b) Second.", "(1) B one, per paragraph (d).", "(i) One i.", "(ii) One ii.", "(iii) One iii.",
+             "(iv) One iv.", "(v) One v.", "(2) B two.", "(c) Third.")]}]}
+    r = parse(extract(write(tmp_path, "r.docx", docx_bytes([
+        [("Section 60.1 is amended by:", None)],
+        [("a. Revising paragraph (b)(1);", None)],
+        [("b. Removing paragraph (b)(1)(iii); and", None)],
+        [("c. Adding paragraphs (b)(1)(vi) and (d).", None)],
+        [("§ 60.1 Things.", None)],
+        [("(1) B one, ", None), ("per", "del"), ("under", "ins"), (" paragraph (d).", None)],
+        [("(vi) One vi.", "ins")],
+        [("(d) Fourth.", "ins")],
+    ]))))
+    assert [p["path"] for p in r["sections"][0]["paragraphs"]] == ["(b)(1)", "(b)(1)(vi)", "(d)"]
+    c = compose(unit, r)
+    assert [b["text"] for b in c["sections"][0]["blocks"]] == [
+        "(a) First.", "(b) Second.", "(1) B one, under paragraph (d).", "(i) One i.", "(ii) One ii.",
+        "(iv) One iv.", "(v) One v.", "(vi) One vi.", "(2) B two.", "(c) Third.", "(d) Fourth."]
+    cov = c["coverage"]
+    assert (cov["replaced"], cov["inserted"], cov["removed"], cov["unmatched"]) == (1, 2, 1, [])

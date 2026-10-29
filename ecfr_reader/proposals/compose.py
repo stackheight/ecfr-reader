@@ -14,7 +14,43 @@ that base equals the local text paragraph for paragraph.
 import copy
 import re
 
-from .parse import block_paths
+from .parse import _kinds, _roman_value, block_paths
+
+_TOKEN_RE = re.compile(r"\(([^()]+)\)")
+
+
+def _ordinal(token, siblings):
+    """Order a token among its siblings: digits by value, letters by (length,
+    text), numerals by value when the siblings read as numerals."""
+    if token.isdigit():
+        return (0, int(token), "")
+    roman = "roman" in _kinds(token) and any(t not in ("i", "v", "x", "l", "c") and "roman" in _kinds(t) for t in siblings)
+    if roman or ("alpha" not in _kinds(token) and "roman" in _kinds(token)):
+        return (1, _roman_value(token) or 0, "")
+    return (2, len(token), token.lower())
+
+
+def _insert_at(paths, path):
+    """Where a new block with `path` goes: after the last existing sibling
+    that precedes it, else right after its parent, else at the end. None
+    when the parent is unknown."""
+    tokens = _TOKEN_RE.findall(path)
+    if not tokens:
+        return None
+    parent = "".join(f"({t})" for t in tokens[:-1])
+    depth = len(tokens)
+    sibs = [(i, _TOKEN_RE.findall(pth)[-1]) for i, pth in enumerate(paths)
+            if pth.startswith(parent) and len(_TOKEN_RE.findall(pth)) == depth and "+" not in pth]
+    names = [t for _, t in sibs]
+    mine = _ordinal(tokens[-1], names)
+    before = [i for i, t in sibs if _ordinal(t, names) < mine]
+    if before:
+        return _children_end(paths, max(before))
+    if parent and parent in paths:
+        return paths.index(parent) + 1
+    if not parent:
+        return len(paths)
+    return None
 
 _QUOTES = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"', "—": "-", "–": "-",
                          " ": " "})
@@ -151,11 +187,9 @@ def compose(unit: dict, proposal: dict, side: str = "after", mode: str = "amend"
             if not is_new:
                 cov["unmatched"].append({"identifier": ident, "path": path, "text": text[:120]})
                 continue
-            if anchor is not None:
-                at = _children_end(paths, anchor)
-            else:
-                parent = re.sub(r"\([^()]*\)$|\+\d+$", "", path)
-                at = _children_end(paths, index[parent]) if parent and parent in index else len(blocks)
+            at = _insert_at(paths, path)
+            if at is None:
+                at = _children_end(paths, anchor) if anchor is not None else len(blocks)
             blocks.insert(at, {"type": "p", "text": text})
             cov["inserted"] += 1
             paths = block_paths(blocks)

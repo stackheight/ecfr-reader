@@ -1022,3 +1022,4 @@ body.ecfr-resizing { cursor: col-resize; user-select: none; }
 .dk-drop.busy { opacity: .6; }
 .dk-drop .dk-linkbtn { margin-left: 4px; }
 .dk-keycard .hint { text-align: left; }
+.dk-badge.proposal { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }

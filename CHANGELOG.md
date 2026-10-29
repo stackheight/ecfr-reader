@@ -29,6 +29,22 @@ one server-side attempt (the data formats in `REGSGOV_AUTO_PULL`, default
 document files a browser download under it, matched to the catalogued
 entry by format and size. Kept copies are served by the app.
 
+**A proposed rule diffs against the eCFR.** Keep the docket's
+"Redline/Strikeout" memo (DOCX or PDF) and press *Use as proposed text*:
+the tool reads the redline as two texts (struck runs the before, inserted
+runs the after; Word's tracked changes and strike/underline exactly, a
+PDF's drawn lines paired with the characters under them), finds the
+sections and amendatory instructions, keys every paragraph by its CFR
+enumerator path, and composes the subpart as it would read on the local
+snapshot — replaced, inserted in enumerator order, removed, the rest
+carried over, anything that fits nowhere listed as unmatched. The result
+is a source like a dated version: *Proposed — <title>* in a frame's menu
+and the Compare pickers (`#ecfr/compare/60/OOOOb/local..proposal:3`), and
+*Base of proposal* to check EPA's base against the snapshot, with the match
+share and the differing paragraphs printed under the diff header.
+`ecfr_reader/proposals/`, routes under `/api/dockets/proposals/`, one new
+pinned dependency (`pdfminer.six`, MIT).
+
 New routes under `/api/dockets/` (see the README), new settings
 `REGSGOV_API_KEY`, `REGSGOV_AUTO_PULL`, `ECFR_DOCKETS_DB`.
 

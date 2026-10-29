@@ -585,9 +585,16 @@ function dkFileRowHtml(f) {
             title="Opens on downloads.regulations.gov in a new tab">Open ↗</a>` : "";
     const keep = f.file_url && !f.local ? `<button class="btn btn-sm btn-quiet" onclick="dkFetchFile(${f.id})"
             title="One try at downloading it here. The host usually only serves browsers; if it refuses, open it and drop the download below.">Keep a copy</button>` : "";
+    const readable = f.local && ["docx", "pdf"].includes((f.format || "").toLowerCase());
+    const proposal = readable ? `<button class="btn btn-sm ${f.proposal_id ? "btn-quiet" : "btn-primary"}" onclick="dkUseAsProposal(${f.id})"
+            title="Read this file as the proposed regulatory text: a redline's struck and inserted runs become the before and after, and the reader can show or diff the subpart as it would read.">${
+            f.proposal_id ? "Re-read as proposed text" : "Use as proposed text"}</button>` : "";
+    const proposalLinks = f.proposal_id ? `<button class="btn btn-sm btn-ok" onclick="dkProposalGo(${f.proposal_id}, 'compare')" title="Diff it against the local snapshot in the reader's Compare tab">Compare in the reader</button>
+            <button class="btn btn-sm btn-quiet" onclick="dkProposalGo(${f.proposal_id}, 'read')" title="Open the subpart as it would read, beside the snapshot">Read it</button>
+            <button class="btn btn-sm btn-quiet" onclick="dkProposalRemove(${f.proposal_id})" title="Forget this reading (the file stays)">Forget</button>` : "";
     return `<div class="dk-file${f.local ? " local" : ""}">
-        <div class="dk-file-head">${dkBadgesHtml([f])}<span class="dk-file-name">${esc(name)}</span></div>
-        <div class="dk-file-actions">${open}${keep}${local}</div>
+        <div class="dk-file-head">${dkBadgesHtml([f])}${f.proposal_id ? `<span class="dk-badge proposal" title="read as proposed regulatory text">proposal</span>` : ""}<span class="dk-file-name">${esc(name)}</span></div>
+        <div class="dk-file-actions">${open}${keep}${local}${proposal}${proposalLinks}</div>
         ${f.restricted ? `<div class="hint dk-file-err">Restricted: ${esc(f.restricted)}</div>` : ""}
         ${f.download_error && !f.local ? `<div class="hint dk-file-err">${esc(f.download_error)}</div>` : ""}
     </div>`;
@@ -677,6 +684,65 @@ async function dkUpload(files) {
     await dkSelect(dkSelected, { keepHash: true, quiet: true });
     dkLoadDocs().then(dkRenderMain).catch(() => {});
     dkLoadDocket().then(dkRenderFacets).catch(() => {});
+}
+
+// ── Proposed text ──────────────────────────────────────────────────────
+// A kept .docx / .pdf read as proposed regulatory text (ecfr_reader/proposals/).
+// The reading lives in the catalog; the reader lists it as a frame source
+// and a Compare side for the parts it covers.
+
+async function dkUseAsProposal(fileId, mode) {
+    const drop = document.getElementById("dk-drop");
+    if (drop) drop.classList.add("busy");
+    let r;
+    try {
+        r = await dkJson(`/api/dockets/files/${fileId}/proposal`, { method: "POST", headers: { "Content-Type": "application/json" },
+                                                                   body: JSON.stringify({ mode: mode || "amend" }) });
+    } catch (err) {
+        toast(err.message);
+        if (drop) drop.classList.remove("busy");
+        return;
+    }
+    const p = r.proposal, st = p.stats || {};
+    toast(`Read as ${p.kind === "redline" ? "a redline" : "clean text"} (${st.format}): ${st.sections} section${st.sections === 1 ? "" : "s"}, ${
+        st.paragraphs} paragraphs${p.kind === "redline" ? `, ${st.n_del} struck / ${st.n_ins} inserted spans` : ""} · part${p.parts.length === 1 ? "" : "s"} ${p.parts.join(", ")}${
+        p.subparts.length ? ` subpart${p.subparts.length === 1 ? "" : "s"} ${p.subparts.join(", ")}` : ""}.`, "ok");
+    (r.warnings || []).forEach(w => toast(w));
+    if (typeof ecfrForgetProposals === "function") ecfrForgetProposals();
+    if (dkSelected) await dkSelect(dkSelected, { keepHash: true, quiet: true });
+}
+
+async function dkProposalGo(proposalId, how) {
+    let p;
+    try { p = await dkJson(`/api/dockets/proposals/${proposalId}`); } catch (err) { toast(err.message); return; }
+    const part = p.parts[0], subpart = p.subparts[0];
+    if (!part) { toast("The reading names no part of Title 40."); return; }
+    if (!subpart) { toast(`The reading covers part ${part} but no subpart the corpus knows; open a section of it and pick the proposal in a frame's source menu.`); return; }
+    if (typeof ecfrForgetProposals === "function") ecfrForgetProposals();
+    if (how === "compare") {
+        location.hash = `#ecfr/compare/${encodeURIComponent(part)}/${encodeURIComponent(subpart)}/local..proposal:${proposalId}`;
+    } else {
+        // open the subpart, then put the second frame on the proposal
+        location.hash = `#ecfr/read/${encodeURIComponent(part)}/${encodeURIComponent(subpart)}`;
+        const t0 = Date.now();
+        const tick = () => {
+            if (typeof ecfrUnit !== "undefined" && ecfrUnit && ecfrUnit.subpart === subpart && typeof ecfrFrames !== "undefined") {
+                const src = ecfrProposalSource(proposalId, "after");
+                if (ecfrFrames.length === 1) ecfrFrames.push({ source: src });
+                else ecfrFrames[1].source = src;
+                renderEcfrReader(); ecfrLoadFrames();
+            } else if (Date.now() - t0 < 8000) setTimeout(tick, 200);
+        };
+        setTimeout(tick, 200);
+    }
+}
+
+async function dkProposalRemove(proposalId) {
+    try { await dkJson(`/api/dockets/proposals/${proposalId}`, { method: "DELETE" }); }
+    catch (err) { toast(err.message); return; }
+    if (typeof ecfrForgetProposals === "function") ecfrForgetProposals();
+    toast("Reading forgotten; the file is still here.", "ok");
+    if (dkSelected) await dkSelect(dkSelected, { keepHash: true, quiet: true });
 }
 
 // ── Untrack ────────────────────────────────────────────────────────────

@@ -162,6 +162,11 @@ function cmpVersionOptions() {
         const snap = (v && v.local_snapshot_date) || (typeof ecfrStatus !== "undefined" && ecfrStatus && ecfrStatus.snapshot_date);
         out.push({ id: "local", label: `Local snapshot — eCFR as of ${snap || "date unknown"}` });
         out.push({ id: "live", label: "Live ecfr.gov — today" });
+        // proposed text read from a docket file (ecfr.js keeps the list per part)
+        (typeof ecfrProposals !== "undefined" ? ecfrProposals : []).forEach(p => {
+            out.push({ id: `proposal:${p.id}`, label: `Proposed — ${p.title}` });
+            out.push({ id: `proposal:${p.id}:before`, label: `Base of proposal — ${p.title}` });
+        });
     }
     return out;
 }
@@ -257,6 +262,7 @@ async function cmpSideData(id, key) {
     if (id === "local") return cmpLocalSection(key);
     if (id === "live") return ecfrEnsureLiveSection(key);
     if (id.startsWith("version:")) return ecfrEnsureVersion(id.slice(8), key);
+    if (id.startsWith("proposal:")) return ecfrEnsureProposalData(id, key);
     throw new Error(`unknown version ${id}`);
 }
 
@@ -270,6 +276,7 @@ async function cmpUnitSideData(id, unitId) {
         return cmpLiveUnits[unitId];
     }
     if (id.startsWith("version:")) return ecfrEnsureUnitVersion(id.slice(8), { part, subpart });
+    if (id.startsWith("proposal:")) return ecfrEnsureProposalUnit(id, { part, subpart });
     throw new Error(`unknown version ${id}`);
 }
 
@@ -287,7 +294,34 @@ async function cmpLocalUnit(part, subpart) {
 function cmpSideName(id, data) {
     if (id === "local") return `local snapshot${data && data.as_of ? ` ${data.as_of}` : (typeof ecfrStatus !== "undefined" && ecfrStatus && ecfrStatus.snapshot_date) ? ` ${ecfrStatus.snapshot_date}` : ""}`;
     if (id === "live") return `live ecfr.gov${data && data.as_of ? ` ${data.as_of}` : ""}`;
+    if (id.startsWith("proposal:")) {
+        const p = typeof ecfrProposalOf === "function" ? ecfrProposalOf(id) : null;
+        return `${id.endsWith(":before") ? "base of proposal" : "proposed"}${p ? ` "${p.title}"` : ` ${id}`}`;
+    }
     return `as of ${id.slice(8)}`;
+}
+
+// What a proposed side is made of, printed under the ---/+++ header: the
+// composition's coverage, and for the base side how much of EPA's base
+// equals the snapshot. A diff should say what it was built from.
+function cmpProposalNotes(id, data) {
+    if (!id.startsWith("proposal:") || !data) return [];
+    const p = data.proposal || {};
+    const cov = data.coverage;
+    const lines = [];
+    lines.push({ kind: "muted", text: `# ${id.endsWith(":before") ? "base of proposal" : "proposal"}: ${p.title || id}${
+        p.kind ? ` — ${p.kind}` : ""}${p.stats && p.stats.format ? ` ${p.stats.format}` : ""}${
+        p.stats ? `, ${p.stats.n_del} struck / ${p.stats.n_ins} inserted spans` : ""}` });
+    if (cov) lines.push({ kind: "muted", text: `# composed on the local snapshot: ${ecfrCoverageText(cov)}` });
+    if (cov && cov.unmatched && cov.unmatched.length) {
+        cov.unmatched.slice(0, 12).forEach(u => lines.push({ kind: "muted", text: `#   unmatched § ${u.identifier} ${u.path}: ${u.text}` }));
+        if (cov.unmatched.length > 12) lines.push({ kind: "muted", text: `#   … and ${cov.unmatched.length - 12} more` });
+    }
+    if (cov && cov.mismatches && cov.mismatches.length) {
+        cov.mismatches.slice(0, 12).forEach(m => lines.push({ kind: "muted", text: `#   base differs § ${m.identifier} ${m.path}` }));
+        if (cov.mismatches.length > 12) lines.push({ kind: "muted", text: `#   … and ${cov.mismatches.length - 12} more` });
+    }
+    return lines;
 }
 
 function cmpSideArg(id) {
@@ -315,6 +349,7 @@ async function cmpRun() {
     const head = [
         { kind: "meta", text: `--- a/${cite}  (${cmpSideName(cmpA, a)})` },
         { kind: "meta", text: `+++ b/${cite}  (${cmpSideName(cmpB, b)})` },
+        ...cmpProposalNotes(cmpA, a), ...cmpProposalNotes(cmpB, b),
     ];
     let lines, counts, sections = null;
     if (cmpIsUnit()) {

@@ -432,6 +432,137 @@ async function ecfrEnsureUnitVersion(date, unit) {
     return ecfrUnitVersionFetches[id];
 }
 
+// --- Proposed text ----------------------------------------------------
+// A docket file read as proposed regulatory text (ecfr_reader/proposals/)
+// is a source like a dated version: "proposal:<id>" is the subpart as it
+// would read under the proposal, composed on the local snapshot;
+// "proposal:<id>:before" is the base EPA marked up, composed the same way,
+// so diffing it against Local says whether EPA redlined the text you have.
+// The list comes from /api/dockets/proposals?part= when a unit loads.
+let ecfrProposals = [];           // [{id, title, kind, parts, subparts, stats}] for the open part
+let ecfrProposalsPart = null;
+let ecfrProposalCache = {};       // source -> { section_key -> section }
+let ecfrProposalUnits = {};       // "<source>|<part>/<subpart>" -> the composed unit (with coverage)
+let ecfrProposalFetches = {};
+
+function ecfrProposalId(source) { return source.split(":")[1]; }
+function ecfrProposalSide(source) { return source.endsWith(":before") ? "before" : "after"; }
+function ecfrProposalOf(source) { return ecfrProposals.find(p => String(p.id) === ecfrProposalId(source)) || null; }
+
+function ecfrCoverageText(cov) {
+    if (!cov) return "";
+    const bits = [`${cov.sections_touched} section${cov.sections_touched === 1 ? "" : "s"} touched`,
+                  `${cov.replaced} replaced`, `${cov.inserted} inserted`, `${cov.removed} removed`];
+    if (cov.added_sections && cov.added_sections.length) bits.push(`${cov.added_sections.length} section${cov.added_sections.length === 1 ? "" : "s"} added`);
+    if (cov.removed_sections && cov.removed_sections.length) bits.push(`${cov.removed_sections.length} section${cov.removed_sections.length === 1 ? "" : "s"} removed`);
+    if (cov.unmatched && cov.unmatched.length) bits.push(`${cov.unmatched.length} unmatched`);
+    if (cov.base_match != null) bits.push(`base matches the snapshot ${Math.round(cov.base_match * 100)}%`);
+    return bits.join(" · ");
+}
+
+function ecfrProposalCoverage(source) {
+    const u = ecfrUnit && ecfrUnit.subpart ? ecfrProposalUnits[`${source}|${ecfrUnit.part}/${ecfrUnit.subpart}`] : null;
+    if (u) return u.coverage;
+    const d = (ecfrProposalCache[source] || {})[ecfrCurrentKey];
+    return d ? d.coverage : null;
+}
+
+function ecfrProposalSource(id, side = "after") {
+    const source = `proposal:${id}${side === "before" ? ":before" : ""}`;
+    if (!ECFR_SOURCES[source]) {
+        const title = () => { const p = ecfrProposalOf(source); return p ? p.title : `proposal ${id}`; };
+        ECFR_SOURCES[source] = {
+            name: side === "before" ? `Base of proposal — ${title()}` : `Proposed — ${title()}`,
+            label: () => {
+                const cov = ecfrProposalCoverage(source);
+                const what = side === "before" ? "Base of proposal" : "Proposed";
+                return `${what} — ${title()} · composed on the local snapshot${cov ? ` · ${ecfrCoverageText(cov)}` : ""}`;
+            },
+            hint: () => {
+                const cov = ecfrProposalCoverage(source);
+                if (!cov) return "";
+                const lines = [];
+                if (cov.unmatched && cov.unmatched.length) lines.push("Unmatched (no paragraph at that path in the snapshot, listed, not dropped):\n" +
+                    cov.unmatched.map(u => `  § ${u.identifier} ${u.path}: ${u.text}`).join("\n"));
+                if (cov.mismatches && cov.mismatches.length) lines.push("Base paragraphs that differ from the snapshot:\n" +
+                    cov.mismatches.map(m => `  § ${m.identifier} ${m.path}`).join("\n"));
+                return lines.join("\n\n");
+            },
+            editable: false,
+            persists: false,
+            ensure: (key) => ecfrEnsureProposalData(source, key),
+            data: (key) => (ecfrProposalCache[source] || {})[key] || null,
+        };
+    }
+    return source;
+}
+
+async function ecfrEnsureProposalData(source, key) {
+    const have = (ecfrProposalCache[source] || {})[key];
+    if (have) return have;
+    const unit = ecfrUnitOf(key);
+    if (unit && unit.subpart) {
+        await ecfrEnsureProposalUnit(source, unit);
+        return (ecfrProposalCache[source] || {})[key] || null;
+    }
+    const id = `${source}|${key}`;
+    if (!ecfrProposalFetches[id]) {
+        ecfrProposalFetches[id] = (async () => {
+            const params = new URLSearchParams({ key, side: ecfrProposalSide(source) });
+            const res = await fetch(`${API_BASE}/api/dockets/proposals/${ecfrProposalId(source)}/section?${params.toString()}`);
+            const d = await res.json();
+            if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+            (ecfrProposalCache[source] = ecfrProposalCache[source] || {})[key] = d;
+            return d;
+        })().finally(() => { delete ecfrProposalFetches[id]; });
+    }
+    return ecfrProposalFetches[id];
+}
+
+async function ecfrEnsureProposalUnit(source, unit) {
+    const id = `${source}|${unit.part}/${unit.subpart}`;
+    if (ecfrProposalUnits[id]) return ecfrProposalUnits[id];
+    if (!ecfrProposalFetches[id]) {
+        ecfrProposalFetches[id] = (async () => {
+            const params = new URLSearchParams({ part: unit.part, subpart: unit.subpart, side: ecfrProposalSide(source) });
+            const res = await fetch(`${API_BASE}/api/dockets/proposals/${ecfrProposalId(source)}/unit?${params.toString()}`);
+            const d = await res.json();
+            if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+            const bucket = (ecfrProposalCache[source] = ecfrProposalCache[source] || {});
+            (d.sections || []).forEach(s => { bucket[s.section_key] = s; });
+            ecfrProposalUnits[id] = d;
+            ecfrRefreshProvenance();        // the header's coverage line waits on this
+            return d;
+        })().finally(() => { delete ecfrProposalFetches[id]; });
+    }
+    return ecfrProposalFetches[id];
+}
+
+// The proposals that cover a part, fetched once per part; the pickers
+// (frames and Compare) list them as soon as they arrive.
+async function ecfrLoadProposals(part, force = false) {
+    if (ecfrProposalsPart === part && !force) return;
+    ecfrProposalsPart = part;
+    try {
+        const res = await fetch(`${API_BASE}/api/dockets/proposals?part=${encodeURIComponent(part)}`);
+        const d = await res.json();
+        ecfrProposals = res.ok ? (d.proposals || []) : [];
+    } catch (e) {
+        ecfrProposals = [];
+    }
+    ecfrProposals.forEach(p => { ecfrProposalSource(p.id, "after"); ecfrProposalSource(p.id, "before"); });
+    ecfrRefreshFrameSelects();
+    if (typeof cmpRenderControls === "function" && document.getElementById("ecfr-compare")) cmpRenderControls();
+}
+
+// After a file is (re)read as a proposal in the Dockets tab: forget what
+// was composed from the old reading.
+function ecfrForgetProposals() {
+    ecfrProposalsPart = null;
+    ecfrProposalCache = {};
+    ecfrProposalUnits = {};
+}
+
 // --- The timeline ----------------------------------------------------
 // Across the top of the pane: every date ecfr.gov amended the open section,
 // plus Local (the snapshot) and Live (today) on the same rail. It is the
@@ -1065,6 +1196,7 @@ async function ecfrLoadUnit(unit) {
     } finally {
         ecfrUnitLoading = false;
     }
+    ecfrLoadProposals(unit.part);      // the proposals that cover this part, for the pickers
 }
 
 // Point the panel, the star and the URL at one section of
@@ -1262,7 +1394,9 @@ function ecfrRefreshProvenance() {
         const el = document.querySelector(
             `#ecfr-pane .ecfr-frame[data-frame="${i}"] .ecfr-frame-provenance`);
         if (!el) return;
-        el.textContent = src.label(src.data(ecfrCurrentKey));
+        const d = src.data(ecfrCurrentKey);
+        el.textContent = src.label(d);
+        el.title = src.hint ? src.hint(d) : "";
     });
 }
 
@@ -2067,7 +2201,7 @@ function ecfrFrameHtml(frame, index) {
                 onchange="ecfrSetFrameSource(${index}, this.value)">
                 ${options}
             </select>
-            <span class="ecfr-frame-provenance">${esc(src.label(data))}</span>
+            <span class="ecfr-frame-provenance" title="${escAttr(src.hint ? src.hint(data) : "")}">${esc(src.label(data))}</span>
             ${scratchWarn}
             ${action}
         </div>
@@ -2105,7 +2239,14 @@ function ecfrFrameSourceOptions(frame) {
         dated = `<option disabled>${v && v.loading ? "amendment dates loading…"
             : v && v.error ? "amendment dates unavailable" : "no amendments on record since 2017"}</option>`;
     }
-    return html + `<optgroup label="Amendments on record">${dated}</optgroup>`;
+    html += `<optgroup label="Amendments on record">${dated}</optgroup>`;
+    let proposals = ecfrProposals.map(p => opt(`proposal:${p.id}`, `Proposed — ${p.title}`)
+        + opt(`proposal:${p.id}:before`, `Base of proposal — ${p.title}`)).join("");
+    if (frame.source.startsWith("proposal:") && !ecfrProposalOf(frame.source)) {
+        proposals += opt(frame.source, `${frame.source.endsWith(":before") ? "Base of proposal" : "Proposed"} (another part's)`);
+    }
+    if (proposals) html += `<optgroup label="Proposals (from the Dockets tab)">${proposals}</optgroup>`;
+    return html;
 }
 
 // Rewrite each frame's picker in place when the rail's dates arrive — the
@@ -2291,6 +2432,7 @@ function ecfrRepaintNonUnitFrames() {
 async function ecfrSetFrameSource(index, source) {
     const frame = ecfrFrames[index];
     if (source.startsWith("version:")) ecfrVersionSource(source.slice(8));   // a date from the picker: register it like a tick click
+    if (source.startsWith("proposal:")) ecfrProposalSource(ecfrProposalId(source), ecfrProposalSide(source));
     if (!frame || !ECFR_SOURCES[source] || frame.source === source) return;
     frame.source = source;
     frame.error = null;
