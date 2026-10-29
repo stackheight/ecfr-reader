@@ -18,6 +18,9 @@ listed here with the license read from the installed package's own metadata
 | beautifulsoup4 | 4.15.0 | MIT | parsing the eCFR XML (`ecfr_reader/corpus/render.py`) |
 | soupsieve | 2.8.x | MIT | beautifulsoup4 dependency |
 | lxml | 6.1.1 | BSD-3-Clause | the XML parser behind beautifulsoup4 |
+| pdfminer.six | 20260107 | MIT | reading a proposed rule's redline PDF — character boxes paired with the drawn strike / underline marks (`ecfr_reader/proposals/extract.py`) |
+| charset-normalizer | 3.x | MIT | pdfminer.six dependency |
+| cryptography | 50.x | Apache-2.0 OR BSD-3-Clause | pdfminer.six dependency (encrypted PDFs) |
 
 ## Vendored frontend assets
 

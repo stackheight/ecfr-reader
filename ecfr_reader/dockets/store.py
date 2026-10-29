@@ -79,6 +79,23 @@ CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
     document_id UNINDEXED, title, abstract, subtype, tokenize='porter unicode61');
 CREATE TABLE IF NOT EXISTS dockets_cache (
     key TEXT PRIMARY KEY, fetched_at TEXT NOT NULL, value TEXT NOT NULL);
+-- A kept file read as proposed regulatory text (proposals/): the parsed
+-- sections and paragraphs, keyed by enumerator path, with before/after.
+CREATE TABLE IF NOT EXISTS proposals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_id INTEGER NOT NULL,
+    document_id TEXT NOT NULL,
+    docket_id TEXT NOT NULL,
+    title TEXT,
+    source_format TEXT,
+    kind TEXT,
+    mode TEXT,
+    parts_json TEXT,
+    subparts_json TEXT,
+    parsed_json TEXT,
+    stats_json TEXT,
+    created_at TEXT
+);
 """
 
 SORTS = {"posted": "d.posted_date DESC, d.document_id DESC", "-posted": "d.posted_date ASC, d.document_id ASC",
@@ -351,7 +368,8 @@ def _attach_files(conn, rows):
     if ids:
         marks = ",".join("?" * len(ids))
         for f in conn.execute(f"""SELECT id, document_id, attachment_title, doc_order, file_url, format, size, restricted,
-                                         local_path IS NOT NULL AS local, local_size, downloaded_at, download_error
+                                         local_path IS NOT NULL AS local, local_size, downloaded_at, download_error,
+                                         (SELECT p.id FROM proposals p WHERE p.file_id = files.id ORDER BY p.id DESC LIMIT 1) AS proposal_id
                                   FROM files WHERE document_id IN ({marks}) ORDER BY doc_order, id""", ids):
             d = dict(f)
             d["local"] = bool(d["local"])
@@ -473,3 +491,51 @@ def cache_put(key: str, value) -> None:
         conn.execute("INSERT OR REPLACE INTO dockets_cache (key, fetched_at, value) VALUES (?, ?, ?)",
                      (key, _now(), json.dumps(value)))
         conn.commit()
+
+
+# ── Proposals (proposed regulatory text read from a kept file) ─────────
+
+def add_proposal(file_id, document_id, docket_id, title, source_format, kind, mode, parts, subparts, parsed, stats) -> int:
+    """One proposal per file: a re-import replaces the earlier reading."""
+    with db() as conn:
+        conn.execute("DELETE FROM proposals WHERE file_id = ?", (file_id,))
+        cur = conn.execute("""INSERT INTO proposals (file_id, document_id, docket_id, title, source_format, kind, mode,
+                                  parts_json, subparts_json, parsed_json, stats_json, created_at)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                           (file_id, document_id, docket_id, title, source_format, kind, mode, json.dumps(parts),
+                            json.dumps(subparts), json.dumps(parsed), json.dumps(stats), _now()))
+        conn.commit()
+        return cur.lastrowid
+
+
+def _proposal_row(r, with_parsed):
+    d = dict(r)
+    d["parts"] = json.loads(d.pop("parts_json") or "[]")
+    d["subparts"] = json.loads(d.pop("subparts_json") or "[]")
+    d["stats"] = json.loads(d.pop("stats_json") or "{}")
+    parsed = d.pop("parsed_json")
+    if with_parsed:
+        d["parsed"] = json.loads(parsed or "null")
+    return d
+
+
+def list_proposals(part=None) -> list:
+    with db() as conn:
+        rows = conn.execute("SELECT * FROM proposals ORDER BY id DESC").fetchall()
+    out = [_proposal_row(r, False) for r in rows]
+    if part:
+        out = [p for p in out if str(part) in p["parts"]]
+    return out
+
+
+def get_proposal(proposal_id, with_parsed=True):
+    with db() as conn:
+        r = conn.execute("SELECT * FROM proposals WHERE id = ?", (proposal_id,)).fetchone()
+    return _proposal_row(r, with_parsed) if r else None
+
+
+def delete_proposal(proposal_id) -> int:
+    with db() as conn:
+        n = conn.execute("DELETE FROM proposals WHERE id = ?", (proposal_id,)).rowcount
+        conn.commit()
+    return n

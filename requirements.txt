@@ -4,3 +4,5 @@ Jinja2==3.1.6
 # corpus import: parsing the eCFR XML
 beautifulsoup4==4.15.0
 lxml==6.1.1
+# proposed regulatory text: reading a redline PDF's strike/underline geometry
+pdfminer.six==20260107

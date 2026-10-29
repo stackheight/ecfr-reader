@@ -601,8 +601,7 @@ def ecfr_unit():
     still fills blocks lazily as sections near the viewport, which covers the
     handful of outliers (part 52 subpart F is 57 sections / 8,894 blocks).
     """
-    import json
-    from .corpus.store import corpus_exists, unit_sections
+    from .corpus.store import corpus_exists
 
     if not corpus_exists():
         return _ecfr_unavailable()
@@ -613,26 +612,33 @@ def ecfr_unit():
         return jsonify({"error": "part is required"}), 400
     if subpart and appendix:
         return jsonify({"error": "pass subpart or appendix, not both"}), 400
+    payload, err = _unit_payload(part, subpart, appendix)
+    return err or jsonify(payload)
+
+
+def _unit_payload(part, subpart=None, appendix=None):
+    """The /api/ecfr/unit payload for one division, or (None, error
+    response). Shared with the proposal routes, which compose on it."""
+    import json
+    from .corpus.store import unit_sections
 
     # store.unit_sections keeps the three shapes apart: an appendix with no
     # subpart is its own unit — that lumping is what made part 60 look like
     # a single 3.36 MB division.
     part_row, rows, heading = unit_sections(part, subpart or None, appendix or None)
     if not part_row:
-        return jsonify({"error": f"Part {part} not found"}), 404
-
+        return None, (jsonify({"error": f"Part {part} not found"}), 404)
     if not rows:
-        return jsonify({"error": "No sections found for that unit"}), 404
+        return None, (jsonify({"error": "No sections found for that unit"}), 404)
     for r in rows:
         r["blocks"] = json.loads(r.pop("blocks_json"))
-
-    return jsonify({
+    return {
         "part": dict(part_row),
         "subpart": subpart or None,
         "appendix": appendix or None,
         "heading": heading or (rows[0]["heading"] if appendix else None),
         "sections": rows,
-    })
+    }, None
 
 
 @bp.route("/api/ecfr/search", methods=["GET"])
@@ -967,3 +973,159 @@ def docket_file(file_id):
     mimetype = _INLINE_FORMATS.get(fmt) or _MIME.get(fmt) or "application/octet-stream"
     return send_file(path, mimetype=mimetype, as_attachment=not inline, download_name=os.path.basename(path),
                      conditional=True)
+
+
+# ── Proposed regulatory text (ecfr_reader/proposals/) ──────────────────
+
+def _proposal_summary(p):
+    out = {k: p[k] for k in ("id", "file_id", "document_id", "docket_id", "title", "source_format", "kind", "mode",
+                             "parts", "subparts", "stats", "created_at")}
+    return out
+
+
+@bp.route("/api/dockets/files/<int:file_id>/proposal", methods=["POST"])
+def docket_file_proposal(file_id):
+    """Read a kept .docx / .pdf as proposed regulatory text: extract the
+    marked paragraphs (a redline's struck and inserted runs), find the
+    sections and enumerator paths, and store the reading. Body: {mode:
+    amend|replace} — amend (default) patches paragraphs by path; replace
+    swaps whole sections (a clean full-text document)."""
+    from . import config
+    from .dockets import store
+    from .proposals.extract import ExtractError, extract
+    from .proposals.parse import parse
+    store.init_db()
+    f = store.get_file(file_id)
+    if not f:
+        return jsonify({"error": "No such file"}), 404
+    if not f.get("local_path"):
+        return jsonify({"error": "Keep a copy of the file first (open it, then drop the download on the document)."}), 400
+    fmt = (f.get("format") or os.path.splitext(f["local_path"])[1].lstrip(".")).lower()
+    if fmt not in ("docx", "pdf"):
+        return jsonify({"error": f"Proposed text is read from a .docx or .pdf; this file is .{fmt}."}), 400
+    body = request.get_json(silent=True) or {}
+    mode = body.get("mode") if body.get("mode") in ("amend", "replace") else "amend"
+    path = os.path.join(config.dockets_dir(), f["local_path"])
+    try:
+        extracted = extract(path)
+    except ExtractError as e:
+        return jsonify({"error": str(e)}), 400
+    parsed = parse(extracted)
+    if not parsed["sections"]:
+        return jsonify({"error": "No section headings (§ 60.xxxx …) were recognised in the file, so there is "
+                                 "nothing to apply. Is this the regulatory text, or the preamble?"}), 422
+    warnings = []
+    kind = "redline" if (extracted["n_del"] or extracted["n_ins"]) else "clean"
+    if kind == "clean":
+        warnings.append("No struck or inserted text was found, so the file is read as clean text: the whole of it "
+                        "is the proposal, and its base cannot be checked against the snapshot."
+                        + (" A PDF redline whose marks are drawn as images, or coloured rather than struck, reads this way;"
+                           " use the DOCX when the docket has one." if fmt == "pdf" else ""))
+    n_instr = sum(len(sx["instructions"]) for sx in parsed["sections"])
+    if kind == "clean" and mode == "amend" and not n_instr:
+        warnings.append("Clean text with no amendatory instructions: paragraphs are matched by enumerator path and "
+                        "nothing is removed. If the file gives whole sections, re-read it with mode \"replace\".")
+    if parsed["front_matter"] > 40:
+        warnings.append(f"{parsed['front_matter']} paragraphs before the first section heading were skipped.")
+    # subparts: the file's own headings, else the corpus
+    subparts = list(parsed.get("subparts") or [])
+    if not subparts:
+        from .corpus.store import corpus_exists, get_section
+        if corpus_exists():
+            for sx in parsed["sections"]:
+                row = get_section(f"{sx['part']}:{sx['identifier']}")
+                if row and row.get("subpart") and row["subpart"] not in subparts:
+                    subparts.append(row["subpart"])
+    doc = store.get_document(f["document_id"]) or {}
+    title = doc.get("title") or f["document_id"]
+    if f.get("file_url") and f.get("attachment_title"):        # a catalogued attachment, not a drop-in
+        title = f"{title} — {f['attachment_title']}"
+    stats = {"format": extracted["format"], "pages": extracted["pages"], "n_del": extracted["n_del"],
+             "n_ins": extracted["n_ins"], "sections": len(parsed["sections"]),
+             "paragraphs": sum(len(sx["paragraphs"]) for sx in parsed["sections"]), "instructions": n_instr,
+             "front_matter": parsed["front_matter"], "warnings": warnings,
+             "section_ids": [sx["identifier"] for sx in parsed["sections"]]}
+    pid = store.add_proposal(file_id, f["document_id"], f["docket_id"], title, fmt, kind, mode, parsed["parts"],
+                             subparts, parsed, stats)
+    return jsonify({"proposal": _proposal_summary(store.get_proposal(pid, with_parsed=False)), "warnings": warnings}), 201
+
+
+@bp.route("/api/dockets/proposals", methods=["GET"])
+def proposals_list():
+    from .dockets import store
+    store.init_db()
+    return jsonify({"proposals": [_proposal_summary(p) for p in store.list_proposals(request.args.get("part") or None)]})
+
+
+@bp.route("/api/dockets/proposals/<int:proposal_id>", methods=["GET", "DELETE"])
+def proposal_get(proposal_id):
+    from .dockets import store
+    store.init_db()
+    p = store.get_proposal(proposal_id, with_parsed=False)
+    if not p:
+        return jsonify({"error": "No such proposal"}), 404
+    if request.method == "DELETE":
+        store.delete_proposal(proposal_id)
+        return jsonify({"removed": proposal_id})
+    return jsonify(_proposal_summary(p))
+
+
+def _composed_unit(proposal_id, part, subpart, appendix, side):
+    """(payload, error) — the local unit with the proposal applied."""
+    from .corpus.store import corpus_exists
+    from .dockets import store
+    from .proposals.compose import compose
+    if not corpus_exists():
+        return None, _ecfr_unavailable()
+    p = store.get_proposal(proposal_id)
+    if not p:
+        return None, (jsonify({"error": "No such proposal"}), 404)
+    if side not in ("after", "before"):
+        return None, (jsonify({"error": "side must be after or before"}), 400)
+    unit, err = _unit_payload(part, subpart, appendix)
+    if err:
+        return None, err
+    unit["part"] = part if isinstance(unit["part"], dict) else unit["part"]
+    part_row = unit["part"] if isinstance(unit["part"], dict) else {"part": part}
+    composed = compose({**unit, "part": part}, p["parsed"], side=side, mode=p.get("mode") or "amend")
+    composed["part"] = part_row
+    composed["proposal"] = {"id": p["id"], "title": p["title"], "kind": p["kind"], "mode": p["mode"],
+                            "document_id": p["document_id"], "docket_id": p["docket_id"], "stats": p["stats"]}
+    return composed, None
+
+
+@bp.route("/api/dockets/proposals/<int:proposal_id>/unit", methods=["GET"])
+def proposal_unit(proposal_id):
+    """The unit as it would read under the proposal (?side=after, the
+    default) or as EPA's base reads (?side=before): the /api/ecfr/unit
+    shape plus `coverage` and `proposal`."""
+    part = (request.args.get("part") or "").strip()
+    subpart = (request.args.get("subpart") or "").strip() or None
+    appendix = (request.args.get("appendix") or "").strip() or None
+    if not part:
+        return jsonify({"error": "part is required"}), 400
+    payload, err = _composed_unit(proposal_id, part, subpart, appendix, request.args.get("side") or "after")
+    return err or jsonify(payload)
+
+
+@bp.route("/api/dockets/proposals/<int:proposal_id>/section", methods=["GET"])
+def proposal_section(proposal_id):
+    """One section of that composition (?key=60:60.5398b&side=)."""
+    from .corpus.store import corpus_exists, get_section
+    if not corpus_exists():
+        return _ecfr_unavailable()
+    key = (request.args.get("key") or "").strip()
+    row = get_section(key) if key else None
+    if not row:
+        return jsonify({"error": f"Section {key!r} not found"}), 404
+    appendix = row["identifier"] if row.get("type") == "appendix" else None
+    payload, err = _composed_unit(proposal_id, row["part"], row.get("subpart"), appendix,
+                                  request.args.get("side") or "after")
+    if err:
+        return err
+    sec = next((s for s in payload["sections"] if s["section_key"] == key), None)
+    if not sec:
+        return jsonify({"error": f"The proposal removes {key}", "removed": True, "coverage": payload["coverage"]}), 404
+    sec["coverage"] = payload["coverage"]
+    sec["proposal"] = payload["proposal"]
+    return jsonify(sec)
