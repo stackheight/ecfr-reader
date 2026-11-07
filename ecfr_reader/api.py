@@ -797,11 +797,42 @@ def docket_get(docket_id):
     d = store.get_docket(docket_id)
     if not d:
         return jsonify({"error": f"Docket {docket_id} is not tracked here"}), 404
+    from .annotations import docket_favorite_id
     d["summary"] = store.docket_summary(docket_id)
     d["sync"] = sync.status(docket_id)
     d["rate"] = client.last_rate
     d["key_set"] = bool(config.regsgov_api_key())
+    d["favorited"] = docket_favorite_id(docket_id) is not None
     return jsonify(d)
+
+
+@bp.route("/api/dockets/favorites", methods=["GET"])
+def docket_favorites_list():
+    """The starred dockets, newest first, for the links at the top of the
+    tab. A favorite need not be tracked yet: `tracked` says, and the title
+    comes from the catalog once it is."""
+    from .annotations import docket_favorites
+    from .dockets import store
+    store.init_db()
+    known = {d["docket_id"]: d for d in store.list_dockets()}
+    out = []
+    for f in docket_favorites():
+        d = known.get(f["docket_id"])
+        out.append({**f, "tracked": d is not None,
+                    "title": (d and (d.get("short_title") or d.get("title"))) or f["label"]})
+    return jsonify(out)
+
+
+@bp.route("/api/dockets/favorites", methods=["POST"])
+def docket_favorite_toggle():
+    """Star or unstar a docket: {docket_id, label?}. The id need not be
+    tracked (star the docket of a rule you have not pulled yet)."""
+    from .annotations import toggle_docket_favorite
+    data = request.get_json(silent=True) or {}
+    docket_id = (data.get("docket_id") or "").strip().upper()
+    if not _docket_id_ok(docket_id):
+        return jsonify({"error": "docket_id is required, e.g. EPA-HQ-OAR-2021-0317"}), 400
+    return jsonify(toggle_docket_favorite(docket_id, (data.get("label") or "").strip()))
 
 
 @bp.route("/api/dockets/<docket_id>", methods=["DELETE"])

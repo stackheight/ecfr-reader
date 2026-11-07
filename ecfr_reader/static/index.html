@@ -23,7 +23,12 @@
         </div>
     </header>
 
+    <!-- Each workspace has its own strip under the header (Dashboard | Reader,
+         Dockets | Docket + starred dockets). It sits beside the workspace, not
+         inside it, because the workspaces repaint with innerHTML. -->
+    <nav class="ws-subnav" id="ecfr-subnav"></nav>
     <div class="facilities-home" id="ecfr-workspace" style="display:block;"></div>
+    <nav class="ws-subnav" id="dockets-subnav" hidden></nav>
     <div class="facilities-home" id="dockets-workspace"></div>
 
     <!-- @recogito/text-annotator 3.4.10 — UMD build only (global RecogitoJS).

@@ -233,6 +233,14 @@ the counts of struck and inserted spans are reported so you can judge it.
 A file with no detectable markup is read as clean text, by paragraph
 (`amend`) or whole sections (`replace`).
 
+**Getting around.** Under the header each workspace has its own strip:
+**Dashboard | Reader** on the eCFR side, **Dockets | Docket** here. The
+right-hand tab remembers where you were, so the landing page is never a
+dead end. Star a docket (the star beside its ID) and it joins the
+**Favorites** links on that strip; a starred docket need not be tracked
+yet, its link tracks and catalogs it on first click. Stars live in
+`annotations.db` with your notes, not in the catalog.
+
 The same from the command line: `ecfr-reader dockets add EPA-HQ-OAR-2021-0317`,
 `dockets sync <ID>` (resumes), `dockets list`. The catalog is
 `data/dockets.db`, separate from the corpus (rebuilt in seconds) because it
@@ -295,6 +303,7 @@ The Dockets tab's routes are under `/api/dockets/`:
 | Route                                                                            | What                                                                                                        |
 | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `GET /`                                                                          | tracked dockets with counts, totals, the API quota last seen, whether a key is set                          |
+| `GET`/`POST /favorites`                                                          | the starred dockets (tracked or not, newest first); star or unstar one (`{docket_id, label}`)               |
 | `GET /search?q=&agency=EPA`                                                      | docket search on regulations.gov (one request, cached a day)                                                |
 | `POST /` `{docket_id, pull}`                                                     | track a docket (one request) and start its sync                                                             |
 | `GET`/`DELETE /<docket>[?files=1]`                                               | the docket with its facet counts and sync state; untrack it                                                 |

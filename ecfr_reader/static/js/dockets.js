@@ -25,6 +25,8 @@ let dkAddBusy = false;
 let dkAddResults = null;    // docket search results on the home, or null
 let dkAcc = { type: true, subtype: true, format: true };
 let dkConfirmRemove = false;
+let dkFavs = null;          // GET /api/dockets/favorites, the links in the sub-nav
+let dkLastHash = null;      // where the Docket tab goes back to
 const DK_PAGE = 100;
 const DK_TYPES = ["Proposed Rule", "Rule", "Notice", "Supporting & Related Material", "Other"];
 const DK_SITE = "https://www.regulations.gov";
@@ -47,6 +49,65 @@ async function goDockets() {
     showScreen("dockets");
     if (dkDocketId) { dkRenderDocket(); return; }
     await dkRenderHome();
+}
+
+// ── The sub-nav: Dockets | Docket, then the starred dockets ──────────────
+// The strip under the header (#dockets-subnav in index.html). The Docket tab
+// remembers the last docket (and document) open, so the home is not a dead
+// end. Stars are favorites in annotations.db (node 'docket:<ID>'), and a
+// starred docket need not be tracked yet: its link tracks it on first click.
+function dkRenderSubnav() {
+    const el = document.getElementById("dockets-subnav");
+    if (!el) return;
+    const open = !!dkDocketId;
+    if (open && appScreen === "dockets") dkLastHash = dkHash();
+    const canBack = open || !!dkLastHash;
+    const tab = (label, active, title, onclick, disabled) => `<button class="ws-btn ${active ? "active" : ""}"
+        ${disabled ? "disabled" : ""} title="${escAttr(title)}" onclick="${onclick}">${label}</button>`;
+    const title = open && dkDocket ? (dkDocket.short_title || dkDocket.title || "") : "";
+    const hint = open ? `${esc(dkDocketId)}${title ? " · " + esc(title) : ""}` : "";
+    let favs = "";
+    if (dkFavs && dkFavs.length) {
+        favs = `<div class="ws-subnav-favs"><span class="ws-subnav-hint" title="Starred dockets — the star is on the docket's screen">Favorites</span>${
+            dkFavs.map(f => `<button class="ws-fav-link ${f.docket_id === dkDocketId ? "active" : ""} ${f.tracked ? "" : "untracked"}"
+                title="${escAttr((f.title || f.docket_id) + (f.tracked ? "" : " — not tracked yet; opening it tracks and catalogs it"))}"
+                onclick="dkGoFavorite(${escJs(f.docket_id)}, ${f.tracked})"><span class="star">★</span>${esc(f.docket_id)}</button>`).join("")}</div>`;
+    }
+    el.innerHTML = `<nav class="workspace-nav">${
+        tab("Dockets", !open, "Tracked dockets, add one, the API quota", "dkRenderHome()")}${
+        tab("Docket", open, open ? "The open docket" : canBack ? "Back to the docket you left" : "Open a docket from the list first",
+            "dkGoDocket()", !canBack)}</nav>
+        <span class="ws-subnav-hint">${hint}</span>${favs}`;
+}
+
+async function dkLoadFavs() {
+    try { dkFavs = await dkJson("/api/dockets/favorites"); } catch (err) { dkFavs = []; }
+    dkRenderSubnav();
+}
+
+async function dkGoDocket() {
+    if (dkDocketId) { await goDockets(); return; }
+    if (dkLastHash) location.hash = dkLastHash;          // hashchange → restoreFromHash reopens it
+}
+
+async function dkGoFavorite(docketId, tracked) {
+    if (tracked) { await dkOpen(docketId); return; }
+    if (dkDocketId) await dkRenderHome();                 // dkAdd reports on the home
+    await dkAdd(docketId);
+}
+
+async function dkToggleFav() {
+    if (!dkDocketId || !dkDocket) return;
+    try {
+        const r = await dkJson("/api/dockets/favorites", { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ docket_id: dkDocketId, label: dkDocket.short_title || dkDocket.title || "" }) });
+        dkDocket.favorited = r.favorited;
+        toast(r.favorited ? "Starred — it is a link at the top of the tab now." : "Star removed.", "ok");
+        dkRenderMain();
+        await dkLoadFavs();
+    } catch (err) {
+        toast(err.message);
+    }
 }
 
 function dkFmtBytes(n) {
@@ -77,6 +138,8 @@ async function dkRenderHome() {
     dkStopPoll();
     dkDocketId = null; dkDocket = null; dkDocs = null; dkSelected = null; dkDocument = null;
     syncHash(false);
+    dkRenderSubnav();
+    if (!dkFavs) dkLoadFavs();
     const el = document.getElementById("dockets-workspace");
     if (!el) return;
     if (!dkHome) el.innerHTML = `<p class="hint" style="padding:20px;">Loading the docket catalog…</p>`;
@@ -282,6 +345,8 @@ function dkRenderDocket() {
     dkRenderFacets();
     dkRenderMain();
     dkRenderDrawer();
+    dkRenderSubnav();
+    if (!dkFavs) dkLoadFavs();
 }
 
 // The facets rail shares the contents rail's remembered width.
@@ -449,7 +514,10 @@ function dkRenderMain() {
         <a class="btn btn-sm btn-quiet" href="${DK_SITE}/docket/${encodeURIComponent(d.docket_id)}" target="_blank" rel="noopener">regulations.gov ↗</a>
     </div>
     <div class="dk-head">
-        <div class="dk-id">${esc(d.docket_id)}</div>
+        <div class="dk-id">${esc(d.docket_id)}
+            <span role="button" tabindex="0" class="ecfr-star dk-star ${d.favorited ? "on" : ""}"
+                title="${d.favorited ? "Remove the star (and the link at the top of the tab)" : "Star this docket: a link at the top of the tab"}"
+                onclick="dkToggleFav()" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); dkToggleFav(); }">${d.favorited ? "★" : "☆"}</span></div>
         <h2 class="dk-title">${esc(d.title || d.short_title || "")}</h2>
         ${d.short_title && d.short_title !== d.title ? `<div class="dk-short">${esc(d.short_title)}</div>` : ""}
         ${abstract ? `<details class="dk-abstract"><summary>Abstract</summary><p>${esc(abstract)}</p></details>` : ""}
@@ -752,7 +820,7 @@ async function dkRemove(withFiles) {
     try {
         await dkJson(`/api/dockets/${encodeURIComponent(dkDocketId)}${withFiles ? "?files=1" : ""}`, { method: "DELETE" });
         toast("Docket untracked.", "ok");
-        dkHome = null;
+        dkHome = null; dkLastHash = null; dkFavs = null;    // the star stays; its link now tracks it again
         await dkRenderHome();
     } catch (err) {
         toast(err.message);

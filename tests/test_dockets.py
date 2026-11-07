@@ -222,6 +222,28 @@ def test_home_loads_without_a_key_and_add_says_what_is_missing(empty_client, mon
     assert empty_client.get("/api/dockets/NOPE-1").status_code == 404
 
 
+def test_docket_favorites_are_stars_in_the_annotations_file(empty_client, regs_gov):
+    # Star a docket that is not tracked yet: it is a link at the top of the
+    # tab, tracked or not, and never shows up among the eCFR's favorites.
+    assert empty_client.get("/api/dockets/favorites").get_json() == []
+    r = empty_client.post("/api/dockets/favorites", json={"docket_id": "epa-hq-oar-2025-0163", "label": "2026 proposal"})
+    assert r.get_json()["favorited"] is True
+    favs = empty_client.get("/api/dockets/favorites").get_json()
+    assert [(f["docket_id"], f["tracked"], f["title"]) for f in favs] == [("EPA-HQ-OAR-2025-0163", False, "2026 proposal")]
+    assert empty_client.get("/api/ecfr/favorites").get_json() == []
+    assert empty_client.post("/api/dockets/favorites", json={"docket_id": "../x"}).status_code == 400
+    # Once tracked, the catalog's title wins and the docket itself says it is starred.
+    empty_client.post("/api/dockets/favorites", json={"docket_id": DOCKET})
+    empty_client.post("/api/dockets", json={"docket_id": DOCKET, "pull": "none"})
+    from ecfr_reader.dockets import sync
+    sync.wait(DOCKET, timeout=10)
+    favs = empty_client.get("/api/dockets/favorites").get_json()
+    assert favs[0]["docket_id"] == DOCKET and favs[0]["tracked"] is True and "Oil and Natural Gas" in favs[0]["title"]
+    assert empty_client.get(f"/api/dockets/{DOCKET}").get_json()["favorited"] is True
+    assert empty_client.post("/api/dockets/favorites", json={"docket_id": DOCKET}).get_json() == {"favorited": False, "favorite_id": None}
+    assert empty_client.get(f"/api/dockets/{DOCKET}").get_json()["favorited"] is False
+
+
 def test_add_sync_filter_upload_and_serve(empty_client, regs_gov):
     from ecfr_reader import config
     from ecfr_reader.dockets import sync

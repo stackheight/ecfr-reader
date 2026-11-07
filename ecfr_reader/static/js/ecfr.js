@@ -796,11 +796,45 @@ async function goEcfr() {
     }
 }
 
+// --- The workspace's sub-nav: Dashboard | Reader ------------------------
+// The strip under the header (#ecfr-subnav in index.html) that every repaint
+// of the workspace leaves alone. The Reader tab remembers the hash of the
+// last thing read (section or subpart, Read or Compare) so Dashboard is not
+// a dead end: going back reopens exactly what you left.
+let ecfrLastReaderHash = null;
+
+function ecfrRenderSubnav() {
+    const el = document.getElementById("ecfr-subnav");
+    if (!el) return;
+    const reading = !!ecfrCurrentKey;
+    if (reading && appScreen === "ecfr") ecfrLastReaderHash = _stateHash();
+    const canRead = reading || !!ecfrLastReaderHash;
+    const tab = (label, active, title, onclick, disabled) => `<button class="ws-btn ${active ? "active" : ""}"
+        ${disabled ? "disabled" : ""} title="${escAttr(title)}" onclick="${onclick}">${label}</button>`;
+    let hint = "";
+    if (reading && ecfrUnit) {
+        const what = ecfrUnit.subpart ? `Subpart ${ecfrUnit.subpart}` : ecfrUnit.appendix ? ecfrUnit.appendix : "Sections";
+        hint = `40 CFR Part ${esc(ecfrUnit.part)} · ${esc(ecfrUnitHeading || what)}`;
+    }
+    el.innerHTML = `<nav class="workspace-nav">${
+        tab("Dashboard", !reading, "The corpus, your favorites and notes, the update check", "goEcfrHome()")}${
+        tab("Reader", reading, reading ? "What you are reading" : canRead ? "Back to what you were reading"
+                                                                  : "Open a section or subpart from the dashboard first",
+            "ecfrGoReader()", !canRead)}</nav>
+        <span class="ws-subnav-hint">${hint}</span>`;
+}
+
+async function ecfrGoReader() {
+    if (ecfrCurrentKey) { await goEcfr(); return; }
+    if (ecfrLastReaderHash) location.hash = ecfrLastReaderHash;     // hashchange → restoreFromHash reopens it
+}
+
 // --- Dashboard ---
 
 async function renderEcfrDashboard() {
     ecfrCurrentKey = null;
     ecfrSection = null;
+    ecfrRenderSubnav();
     const container = document.getElementById("ecfr-workspace");
     if (!container) return;
     container.innerHTML = `<p class="hint" style="padding:20px;">Loading eCFR corpus status…</p>`;
@@ -1497,6 +1531,7 @@ function renderEcfrReader() {
     renderEcfrToc();
     renderEcfrPane();
     renderEcfrAnnotationsPanel();
+    ecfrRenderSubnav();
 }
 
 function renderEcfrToc() {
@@ -2034,6 +2069,7 @@ async function ecfrSetPaneTab(tab) {
     if (cmp) cmp.hidden = tab !== "compare";
     if (tab === "compare" && typeof cmpShow === "function") await cmpShow();
     syncHash(changed);
+    ecfrRenderSubnav();       // the remembered reader hash follows the tab
 }
 
 function renderEcfrPane() {

@@ -54,6 +54,10 @@ CREATE INDEX IF NOT EXISTS idx_highlights_section ON highlights(section_key);
 """
 
 NODE_TYPES = ("part", "subpart", "section")
+# A docket is starrable too, in the same table (it is something the user
+# chose, so it belongs with the notes and not in the rebuildable catalog).
+# Its node_key is 'docket:<ID>', disjoint from the three TOC formats.
+DOCKET_TYPE = "docket"
 
 # Columns PATCH /api/ecfr/highlights/<id> may write. Anything else in the
 # request body is ignored — never interpolate caller-supplied keys into SQL.
@@ -173,7 +177,26 @@ def toggle_favorite(node_type, node_key, citation, label):
         return {"favorited": True, "favorite_id": cur.lastrowid}
 
 
-def favorites():
-    """Newest first. Node types are mixed — node_key's format says which."""
+def favorites(node_types=NODE_TYPES):
+    """Newest first. Node types are mixed — node_key's format says which.
+    The eCFR's three by default; (DOCKET_TYPE,) for the dockets."""
+    marks = ",".join("?" for _ in node_types)
     with db() as conn:
-        return [dict(r) for r in conn.execute("SELECT * FROM favorites ORDER BY created_at DESC, id DESC")]
+        return [dict(r) for r in conn.execute(
+            f"SELECT * FROM favorites WHERE node_type IN ({marks}) ORDER BY created_at DESC, id DESC",
+            tuple(node_types))]
+
+
+def docket_favorites():
+    """[{favorite_id, docket_id, label, created_at}], newest first."""
+    return [{"favorite_id": f["id"], "docket_id": f["node_key"].split(":", 1)[1],
+             "label": f["label"] or "", "created_at": f["created_at"]}
+            for f in favorites((DOCKET_TYPE,))]
+
+
+def toggle_docket_favorite(docket_id, label=""):
+    return toggle_favorite(DOCKET_TYPE, f"{DOCKET_TYPE}:{docket_id}", docket_id, label)
+
+
+def docket_favorite_id(docket_id):
+    return favorite_id(f"{DOCKET_TYPE}:{docket_id}")

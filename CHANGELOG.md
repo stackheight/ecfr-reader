@@ -29,6 +29,15 @@ one server-side attempt (the data formats in `REGSGOV_AUTO_PULL`, default
 document files a browser download under it, matched to the catalogued
 entry by format and size. Kept copies are served by the app.
 
+**Getting around.** A strip under the header for each workspace:
+*Dashboard | Reader* on the eCFR side, *Dockets | Docket* on the Dockets
+side. The right-hand tab remembers where you were (section or subpart,
+Read or Compare; docket and document), so the landing pages are no longer
+dead ends. Star a docket and it is a link on that strip (**Favorites**);
+starring works before the docket is tracked, and the link tracks it.
+`GET`/`POST /api/dockets/favorites`; the stars are favorites in
+`annotations.db`, node `docket:<ID>`.
+
 **A proposed rule diffs against the eCFR.** Keep the docket's
 "Redline/Strikeout" memo (DOCX or PDF) and press *Use as proposed text*:
 the tool reads the redline as two texts (struck runs the before, inserted

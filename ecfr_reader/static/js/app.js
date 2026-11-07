@@ -108,6 +108,8 @@ function showScreen(screen) {
     for (const s of SCREENS) {
         const ws = document.getElementById(`${s}-workspace`);
         if (ws) ws.style.display = s === screen ? "block" : "none";
+        const sub = document.getElementById(`${s}-subnav`);
+        if (sub) sub.hidden = s !== screen;
         const btn = document.getElementById(`ws-${s}`);
         if (btn) btn.classList.toggle("active", s === screen);
     }
