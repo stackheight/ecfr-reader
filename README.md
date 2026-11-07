@@ -33,6 +33,7 @@ python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 
 export ECFR_CONTACT=you@example.org      # who to reach about your requests (see below)
+export REGSGOV_API_KEY=your-key-here     # for dockets tab; does not need to be set immediately
 python3 -m ecfr_reader fetch             # ~95 MB of XML, 50 parts, a couple of minutes
 python3 -m ecfr_reader import            # builds data/ecfr.db (~170 MB), about 20 s
 python3 -m ecfr_reader serve             # http://127.0.0.1:5000 or http://localhost:5000
@@ -48,6 +49,7 @@ On **Windows** (PowerShell, or PyCharm's terminal) the same steps read:
 py -m venv .venv; .venv\Scripts\activate
 pip install -r requirements.txt
 $env:ECFR_CONTACT = "you@example.org"       # cmd.exe: set ECFR_CONTACT=you@example.org
+$env:REGSGOV_API_KEY = "your-key-here"      # for dockets tab; does not need to be set immediately
 python -m ecfr_reader fetch
 python -m ecfr_reader import
 python -m ecfr_reader serve
@@ -59,6 +61,21 @@ directory). Stop `serve` before you `import`: the import swaps the
 database file into place, and Windows will not replace a file another
 process holds open. The test suite runs on Windows in this repository's
 GitHub workflow.
+
+## Environment variables
+
+Two have no default and are set by hand, in the terminal, before the
+command that needs them (the Quick start above shows both):
+
+- `ECFR_CONTACT`: your email address or a URL, so the eCFR operators can
+  reach you about your requests. Needed by `fetch`, live text and the
+  update check.
+- `REGSGOV_API_KEY`: a free key from https://api.data.gov/signup/. Needed
+  by the Dockets tab only. How to get and keep it is under [Dockets](#dockets).
+
+A variable set in a terminal lasts until that terminal closes, and a
+running `serve` must be restarted to see a new one. The full list,
+including the optional ones, is under [Configuration](#configuration).
 
 ## What the reader does
 
@@ -126,9 +143,50 @@ rebuilt from ecfr.gov.
 ## Dockets
 
 The Dockets tab talks to the [regulations.gov v4 API](https://open.gsa.gov/api/regulationsgov/),
-which needs a free api.data.gov key: one form at https://api.data.gov/signup/,
-then `export REGSGOV_API_KEY=…` before `serve`. A key allows 1,000
-requests an hour.
+which needs a free api.data.gov key. The reader itself works without one;
+only the Dockets tab talks to regulations.gov.
+
+### Getting and setting the API key
+
+1. **Sign up** at https://api.data.gov/signup/ (a name and an email
+   address). The key arrives by email within a minute. It is a long
+   string of letters and digits; it works for every api.data.gov service,
+   regulations.gov among them.
+2. **Put it in the environment** of the terminal you start `serve` from,
+   the same way `ECFR_CONTACT` is set above:
+
+   ```bash
+   export REGSGOV_API_KEY=your-key-here          # Linux / macOS
+   ```
+
+   ```powershell
+   $env:REGSGOV_API_KEY = "your-key-here"        # Windows PowerShell
+   set REGSGOV_API_KEY=your-key-here             # Windows cmd.exe
+   ```
+
+   It lives only in that terminal session. To stop retyping it, add the
+   `export` line to your shell profile (`~/.bashrc`, `~/.zshrc`) or, on
+   Windows, set it as a user environment variable in System Settings, and
+   open a new terminal. There is no `.env` file; the tool reads
+   environment variables only.
+
+3. **Start (or restart) the server.** `serve` reads the variable when it
+   handles a request, so a server started before the key was set does not
+   see it: stop it with Ctrl+C and run `serve` again from the terminal
+   that has the key.
+
+To check: `python3 -m ecfr_reader status` prints `REGSGOV_API_KEY set` or
+`unset (the Dockets tab needs it)`, and the Dockets home shows a banner
+with the sign-up link until the key is found. A wrong or revoked key shows
+up as "regulations.gov rejected the API key (HTTP 403)" on the first sync.
+Treat the key like a password: it is tied to your email, and anyone who
+has it spends your quota. It never leaves your machine except as the
+`X-Api-Key` header on requests to api.regulations.gov.
+
+A key allows 1,000 requests an hour. `DEMO_KEY`, the public key in the
+regulations.gov documentation, is never substituted: it allows 30 requests
+an hour shared by everyone behind the same address, not enough to catalog
+one docket.
 
 **A sync is the catalog step, not a download.** It fetches the docket record
 (one request), lists its documents type by type (a few requests, 250 a
@@ -156,13 +214,13 @@ file it is by format and size. Kept copies open from the app and the
 eCFR (only final rules are) and often not in the Federal Register notice
 either: EPA posts it in the docket as a "Redline/Strikeout" memo, a DOCX
 or a PDF. Keep that file, then press **Use as proposed text** on it. The
-tool reads a redline as two texts, the struck runs being the *before* and
-the inserted runs the *after*, finds the sections and amendatory
+tool reads a redline as two texts, the struck runs being the _before_ and
+the inserted runs the _after_, finds the sections and amendatory
 instructions ("Revising paragraph (b)(1)"), keys every paragraph by its
 CFR enumerator path, and composes **the subpart as it would read**: revised
 paragraphs replaced, new ones inserted in enumerator order, struck ones
 removed, everything unmentioned carried over unchanged, and anything that
-fits nowhere listed as *unmatched* rather than dropped. The result is a
+fits nowhere listed as _unmatched_ rather than dropped. The result is a
 source like any dated version: **Proposed — <title>** in a frame's source
 menu and in the Compare tab's pickers, so `local..proposal:3` prints the
 proposal against your snapshot as a git-style diff, and **Base of
@@ -183,15 +241,15 @@ holds nothing you wrote.
 
 ## Configuration
 
-| Variable              | Default                 | Meaning                                                                                                                                                                                                        |
-| --------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ECFR_CONTACT`        | unset                   | Required by `fetch` and by the live / update features. An email address or URL that goes into the User-Agent so the eCFR operators can reach whoever is making the requests. The reader itself never needs it. |
-| `ECFR_DATA_DIR`       | `./data`                | Where the XML, the corpus and your annotations live. Relative to the directory you run from.                                                                                                                   |
-| `ECFR_DB`             | `<data>/ecfr.db`        | The corpus file.                                                                                                                                                                                               |
-| `ECFR_ANNOTATIONS_DB` | `<data>/annotations.db` | Your notes, marks and stars.                                                                                                                                                                                   |
+| Variable              | Default                 | Meaning                                                                                                                                                                                                                                   |
+| --------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ECFR_CONTACT`        | unset                   | Required by `fetch` and by the live / update features. An email address or URL that goes into the User-Agent so the eCFR operators can reach whoever is making the requests. The reader itself never needs it.                            |
+| `ECFR_DATA_DIR`       | `./data`                | Where the XML, the corpus and your annotations live. Relative to the directory you run from.                                                                                                                                              |
+| `ECFR_DB`             | `<data>/ecfr.db`        | The corpus file.                                                                                                                                                                                                                          |
+| `ECFR_ANNOTATIONS_DB` | `<data>/annotations.db` | Your notes, marks and stars.                                                                                                                                                                                                              |
 | `REGSGOV_API_KEY`     | unset                   | Required by the Dockets tab: a free [api.data.gov](https://api.data.gov/signup/) key sent as `X-Api-Key` on every regulations.gov request. `DEMO_KEY` is never substituted (30 requests an hour, shared by everyone behind your address). |
-| `REGSGOV_AUTO_PULL`   | `xlsx,xls,csv,zip`      | File formats a docket sync tries to download itself; `none` to catalog only. |
-| `ECFR_DOCKETS_DB`     | `<data>/dockets.db`     | The docket catalog and the proposals read from its files. Kept files go under `<data>/dockets/`. |
+| `REGSGOV_AUTO_PULL`   | `xlsx,xls,csv,zip`      | File formats a docket sync tries to download itself; `none` to catalog only.                                                                                                                                                              |
+| `ECFR_DOCKETS_DB`     | `<data>/dockets.db`     | The docket catalog and the proposals read from its files. Kept files go under `<data>/dockets/`.                                                                                                                                          |
 
 `fetch --parts 60,63` or `--parts 50-52` narrows the corpus; `--date
 YYYY-MM-DD` fetches a past issue; `--force` refetches parts already on
@@ -215,41 +273,41 @@ worked around.
 
 Everything the page uses is plain JSON under `/api/ecfr/`:
 
-| Route                                                     | What                                                       |
-| --------------------------------------------------------- | ---------------------------------------------------------- |
-| `GET /status`                                             | snapshot date, parts, section count, the last update check |
-| `GET /toc`, `GET /toc/<part>`                             | the parts; one part's subparts and sections                |
-| `GET /unit?part=&subpart=` (or `&appendix=`, or neither)  | every section of one division, with its text blocks        |
-| `GET /unit/live?part=&subpart=`, `GET /section/live?key=` | the same from ecfr.gov, as of its current issue            |
-| `GET /section/versions?key=` | the dates ecfr.gov amended the section (cached a day; `?force=1`) |
-| `GET /section/at?key=&date=` | the section as of a date (cached for ever) |
-| `GET /unit/versions?part=&subpart=` | the dates any section of the subpart was amended, each naming its sections (cached a day; `?force=1`) |
-| `GET /unit/at?part=&subpart=&date=` | the whole subpart as of a date (cached for ever) |
-| `GET /search?q=&part=&limit=&offset=`                     | full-text search                                           |
-| `GET /updates[?force=1]`                                  | the notify-only update check (cached 24 h)                 |
-| `GET /annotations?scope=&key=`                            | notes and marks at a scope, with counts per scope          |
-| `POST /notes`, `PATCH`/`DELETE /notes/<id>`               | notes                                                      |
-| `POST /highlights`, `PATCH`/`DELETE /highlights/<id>`     | marks                                                      |
-| `GET`/`POST /favorites`                                   | stars (POST toggles)                                       |
+| Route                                                     | What                                                                                                  |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `GET /status`                                             | snapshot date, parts, section count, the last update check                                            |
+| `GET /toc`, `GET /toc/<part>`                             | the parts; one part's subparts and sections                                                           |
+| `GET /unit?part=&subpart=` (or `&appendix=`, or neither)  | every section of one division, with its text blocks                                                   |
+| `GET /unit/live?part=&subpart=`, `GET /section/live?key=` | the same from ecfr.gov, as of its current issue                                                       |
+| `GET /section/versions?key=`                              | the dates ecfr.gov amended the section (cached a day; `?force=1`)                                     |
+| `GET /section/at?key=&date=`                              | the section as of a date (cached for ever)                                                            |
+| `GET /unit/versions?part=&subpart=`                       | the dates any section of the subpart was amended, each naming its sections (cached a day; `?force=1`) |
+| `GET /unit/at?part=&subpart=&date=`                       | the whole subpart as of a date (cached for ever)                                                      |
+| `GET /search?q=&part=&limit=&offset=`                     | full-text search                                                                                      |
+| `GET /updates[?force=1]`                                  | the notify-only update check (cached 24 h)                                                            |
+| `GET /annotations?scope=&key=`                            | notes and marks at a scope, with counts per scope                                                     |
+| `POST /notes`, `PATCH`/`DELETE /notes/<id>`               | notes                                                                                                 |
+| `POST /highlights`, `PATCH`/`DELETE /highlights/<id>`     | marks                                                                                                 |
+| `GET`/`POST /favorites`                                   | stars (POST toggles)                                                                                  |
 
 The Dockets tab's routes are under `/api/dockets/`:
 
-| Route                                                     | What                                                       |
-| --------------------------------------------------------- | ---------------------------------------------------------- |
-| `GET /`                                                   | tracked dockets with counts, totals, the API quota last seen, whether a key is set |
-| `GET /search?q=&agency=EPA`                               | docket search on regulations.gov (one request, cached a day) |
-| `POST /` `{docket_id, pull}`                              | track a docket (one request) and start its sync            |
-| `GET`/`DELETE /<docket>[?files=1]`                        | the docket with its facet counts and sync state; untrack it |
-| `GET /<docket>/documents?type=&subtype=&format=&q=&local=1&sort=&offset=&limit=` | the catalog, filtered and paged, each row with its files |
-| `GET`/`POST`/`DELETE /<docket>/sync`                      | the sync job's state; start or resume it (`{pull: data|all|none}`); ask it to stop |
-| `GET /documents/<id>`                                     | one document's detail and files                            |
-| `POST /files/<id>/fetch`                                  | one honest attempt to keep a copy (502 with the reason when the host refuses) |
-| `POST /documents/<id>/upload`                             | the drop zone: a browser download filed under the document |
-| `GET /files/<id>`                                         | a kept copy (PDF inline, everything else as a download)    |
-| `POST /files/<id>/proposal` `{mode}`                      | read a kept .docx/.pdf as proposed regulatory text (`amend` by paragraph path, or `replace` whole sections) |
-| `GET /proposals?part=`, `GET`/`DELETE /proposals/<id>`    | the readings that cover a part; one reading's summary; forget it |
-| `GET /proposals/<id>/unit?part=&subpart=&side=after|before` | the subpart as it would read (or EPA's base), the `/api/ecfr/unit` shape plus `coverage` |
-| `GET /proposals/<id>/section?key=&side=`                  | one section of that composition                             |
+| Route                                                                            | What                                                                                                        |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `GET /`                                                                          | tracked dockets with counts, totals, the API quota last seen, whether a key is set                          |
+| `GET /search?q=&agency=EPA`                                                      | docket search on regulations.gov (one request, cached a day)                                                |
+| `POST /` `{docket_id, pull}`                                                     | track a docket (one request) and start its sync                                                             |
+| `GET`/`DELETE /<docket>[?files=1]`                                               | the docket with its facet counts and sync state; untrack it                                                 |
+| `GET /<docket>/documents?type=&subtype=&format=&q=&local=1&sort=&offset=&limit=` | the catalog, filtered and paged, each row with its files                                                    |
+| `GET`/`POST`/`DELETE /<docket>/sync`                                             | the sync job's state; start or resume it (`{pull: data\|all\|none}`); ask it to stop                        |
+| `GET /documents/<id>`                                                            | one document's detail and files                                                                             |
+| `POST /files/<id>/fetch`                                                         | one honest attempt to keep a copy (502 with the reason when the host refuses)                               |
+| `POST /documents/<id>/upload`                                                    | the drop zone: a browser download filed under the document                                                  |
+| `GET /files/<id>`                                                                | a kept copy (PDF inline, everything else as a download)                                                     |
+| `POST /files/<id>/proposal` `{mode}`                                             | read a kept .docx/.pdf as proposed regulatory text (`amend` by paragraph path, or `replace` whole sections) |
+| `GET /proposals?part=`, `GET`/`DELETE /proposals/<id>`                           | the readings that cover a part; one reading's summary; forget it                                            |
+| `GET /proposals/<id>/unit?part=&subpart=&side=after\|before`                     | the subpart as it would read (or EPA's base), the `/api/ecfr/unit` shape plus `coverage`                    |
+| `GET /proposals/<id>/section?key=&side=`                                         | one section of that composition                                                                             |
 
 ## Development
 
